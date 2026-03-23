@@ -1,0 +1,11 @@
+fastapi[all]
+uvicorn[standard]
+sqlalchemy
+alembic
+pydantic
+pydantic-settings
+playwright
+beautifulsoup4
+pytest
+pyjwt
+passlib[bcrypt]

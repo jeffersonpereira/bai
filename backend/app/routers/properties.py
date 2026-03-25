@@ -1,20 +1,56 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body
+import time
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from pydantic import BaseModel
+from datetime import datetime, time
 from typing import List
 from ..db.database import get_db
 from ..models.property import Property
 from .auth import get_current_user, get_current_agency, get_current_full_access
 from ..models.user import User
 from ..models.assignment import PropertyAssignment
-from pydantic import BaseModel
+from ..models.media import PropertyMedia
+from ..models.availability import PropertyAvailability
 
 router = APIRouter(prefix="/properties", tags=["properties"])
 
-from ..models.media import PropertyMedia
+# Cache simples para localização (evita processar milhares de linhas a cada request)
+_LOCATIONS_CACHE = {
+    "data": None,
+    "expiry": 0
+}
+CACHE_TTL = 300 # 5 minutos
+
+@router.get("/locations")
+def get_locations(db: Session = Depends(get_db)):
+    global _LOCATIONS_CACHE
+    now = time.time()
+    
+    if _LOCATIONS_CACHE["data"] and now < _LOCATIONS_CACHE["expiry"]:
+        return _LOCATIONS_CACHE["data"]
+
+    properties = db.query(Property.city, Property.neighborhood).filter(
+        Property.status == "active",
+        Property.city != None,
+        Property.neighborhood != None
+    ).distinct().all()
+    
+    locations = {}
+    for city, neighborhood in properties:
+        c = city.strip()
+        n = neighborhood.strip()
+        if not c or not n: continue
+        if c not in locations:
+            locations[c] = set()
+        locations[c].add(n)
+        
+    result = {c: sorted(list(ns)) for c, ns in locations.items()}
+    return result
 
 class PropertyMediaBase(BaseModel):
     url: str
-    media_type: str
+    media_type: str # 'image', 'video', 'document'
     class Config:
         from_attributes = True
 
@@ -26,9 +62,10 @@ class PropertyCreate(BaseModel):
     bedrooms: int | None = None
     bathrooms: int | None = None
     garage_spaces: int | None = 0
-    financing_eligible: bool | None = False
+    financing_eligible: bool | None = False 
     city: str | None = None
     neighborhood: str | None = None
+    full_address: str | None = None
     source_url: str | None = None
     image_url: str | None = None
     source: str | None = None
@@ -38,6 +75,7 @@ class PropertyCreate(BaseModel):
     actual_owner_id: int | None = None
     commission_percentage: float | None = None
     media: List[PropertyMediaBase] = []
+    availability_windows: List[AvailabilityCreate] = []
 
 class UserBase(BaseModel):
     id: int
@@ -57,13 +95,27 @@ class PropertyOwnerBase(BaseModel):
     class Config:
         from_attributes = True
 
+class AvailabilityCreate(BaseModel):
+    day_of_week: int # 0-6
+    start_time: time
+    end_time: time
+
+class AvailabilityResponse(AvailabilityCreate):
+    id: int
+    class Config:
+        from_attributes = True
+
 class PropertyResponse(PropertyCreate):
     id: int
     owner_id: int | None = None
     owner: UserBase | None = None
     actual_owner_id: int | None = None
     actual_owner: PropertyOwnerBase | None = None
+    full_address: str | None = None
+    created_at: datetime | None = None
+    owner_name: str | None = None
     media: List[PropertyMediaBase] = []
+    availability_windows: List['AvailabilityResponse'] = []
     class Config:
         from_attributes = True
 
@@ -90,13 +142,15 @@ def get_properties(
     financing_eligible: bool | None = Query(None, description="Apenas aceita financiamento"),
     source: str | None = Query(None, description="Origem do anúncio"),
     listing_type: str | None = Query(None, description="venda, aluguel, temporada"),
-    property_type: str | None = Query(None, description="casa, apartamento, etc"),
+    property_type: List[str] | None = Query(None, description="casa, apartamento, etc"),
 ):
     query = db.query(Property)
     if city:
         query = query.filter(Property.city.ilike(f"%{city}%"))
     if neighborhood:
-        query = query.filter(Property.neighborhood.ilike(f"%{neighborhood}%"))
+        terms = [t.strip() for t in neighborhood.split(",") if t.strip()]
+        if terms:
+            query = query.filter(or_(*[Property.neighborhood.ilike(f"%{t}%") for t in terms]))
     if min_price is not None:
         query = query.filter(Property.price >= min_price)
     if max_price is not None:
@@ -118,7 +172,7 @@ def get_properties(
     if listing_type:
         query = query.filter(Property.listing_type == listing_type)
     if property_type:
-        query = query.filter(Property.property_type == property_type)
+        query = query.filter(Property.property_type.in_(property_type))
     
     query = query.filter(Property.status == "active")
     
@@ -162,7 +216,7 @@ def create_property(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_full_access)
 ):
-    property_data = property_in.model_dump(exclude={"media"})
+    property_data = property_in.model_dump(exclude={"media", "availability_windows"})
     property_data["owner_id"] = current_user.id
     db_property = Property(**property_data)
     db.add(db_property)
@@ -177,11 +231,20 @@ def create_property(
                     media_type=item.media_type
                 )
                 db.add(media_item)
-            db.commit()
-            db.refresh(db_property)
+        
+        if property_in.availability_windows:
+            for item in property_in.availability_windows:
+                avail = PropertyAvailability(
+                    property_id=db_property.id,
+                    **item.model_dump()
+                )
+                db.add(avail)
+                
+        db.commit()
+        db.refresh(db_property)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Erro ao salvar imóvel. URL pode estar duplicada.")
+        raise HTTPException(status_code=400, detail=f"Erro ao salvar imóvel: {str(e)}")
     return db_property
 
 @router.put("/{property_id}", response_model=PropertyResponse)
@@ -191,7 +254,6 @@ def update_property(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_full_access)
 ):
-    from ..models.media import PropertyMedia
     db_property = db.query(Property).filter(Property.id == property_id).first()
     if not db_property:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
@@ -199,7 +261,7 @@ def update_property(
     if db_property.owner_id != current_user.id and current_user.role != 'agency':
         raise HTTPException(status_code=403, detail="Você não tem permissão para editar este imóvel")
 
-    update_data = property_in.model_dump(exclude={"media"}, exclude_unset=True)
+    update_data = property_in.model_dump(exclude={"media", "availability_windows"}, exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_property, key, value)
     
@@ -213,12 +275,21 @@ def update_property(
             )
             db.add(media_item)
 
+    db.query(PropertyAvailability).filter(PropertyAvailability.property_id == property_id).delete()
+    if property_in.availability_windows:
+        for item in property_in.availability_windows:
+            avail = PropertyAvailability(
+                property_id=db_property.id,
+                **item.model_dump()
+            )
+            db.add(avail)
+
     try:
         db.commit()
         db.refresh(db_property)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Erro ao atualizar imóvel.")
+        raise HTTPException(status_code=400, detail=f"Erro ao atualizar imóvel: {str(e)}")
 
     return db_property
 
@@ -326,4 +397,36 @@ def change_property_status(
     prop.status = status
     db.commit()
     db.refresh(prop)
-    return {"message": f"Status atualizado para {status}", "status": status}
+    return prop
+
+@router.get("/{property_id}/availability", response_model=List[AvailabilityResponse])
+def get_property_availability(property_id: int, db: Session = Depends(get_db)):
+    return db.query(PropertyAvailability).filter(PropertyAvailability.property_id == property_id).all()
+
+@router.post("/{property_id}/availability", response_model=List[AvailabilityResponse])
+def update_property_availability(
+    property_id: int, 
+    availability_in: List[AvailabilityCreate], 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    prop = db.query(Property).filter(Property.id == property_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Imóvel não encontrado")
+    
+    # Validação de acesso (somente dono ou broker atribuído)
+    if prop.owner_id != current_user.id and current_user.role != 'agency':
+         # Checar se é broker atribuído
+         is_assigned = any(b.id == current_user.id for b in prop.assigned_brokers)
+         if not is_assigned:
+             raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Limpa as existentes e adiciona as novas
+    db.query(PropertyAvailability).filter(PropertyAvailability.property_id == property_id).delete()
+    
+    for item in availability_in:
+        db_avail = PropertyAvailability(**item.model_dump(), property_id=property_id)
+        db.add(db_avail)
+    
+    db.commit()
+    return db.query(PropertyAvailability).filter(PropertyAvailability.property_id == property_id).all()

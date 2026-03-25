@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List
 from ..db.database import get_db
@@ -33,6 +34,12 @@ class OwnerResponse(OwnerBase):
     class Config:
         from_attributes = True
 
+class PaginatedOwners(BaseModel):
+    items: List[OwnerResponse]
+    total: int
+    page: int
+    limit: int
+
 class LeadBase(BaseModel):
     property_id: int
     name: str
@@ -51,6 +58,12 @@ class LeadResponse(LeadBase):
     broker_name: str | None = None
     class Config:
         from_attributes = True
+
+class PaginatedLeads(BaseModel):
+    items: List[LeadResponse]
+    total: int
+    page: int
+    limit: int
 
 class MandateCreate(BaseModel):
     property_id: int
@@ -111,10 +124,13 @@ def update_owner(
     db.refresh(db_owner)
     return db_owner
 
-@router.get("/owners", response_model=List[OwnerResponse])
+@router.get("/owners", response_model=PaginatedOwners)
 def get_owners(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_full_access)
+    current_user: User = Depends(get_current_full_access),
+    skip: int = 0,
+    limit: int = 20,
+    search: str | None = None
 ):
     query = db.query(Owner)
     if current_user.role == "agency":
@@ -124,30 +140,71 @@ def get_owners(
     else:
         query = query.filter(Owner.broker_id == current_user.id)
     
-    owners = query.all()
+    if search:
+        query = query.filter(
+            or_(
+                Owner.name.ilike(f"%{search}%"),
+                Owner.email.ilike(f"%{search}%"),
+                Owner.document.ilike(f"%{search}%")
+            )
+        )
+    
+    total = query.count()
+    owners = query.order_by(Owner.created_at.desc()).offset(skip).limit(limit).all()
+    
     # Adicionar nome do broker para o frontend
     for o in owners:
         o.broker_name = o.broker.name if o.broker else "Desconhecido"
-    return owners
+        
+    return {
+        "items": owners,
+        "total": total,
+        "page": (skip // limit) + 1,
+        "limit": limit
+    }
 
-@router.get("/leads", response_model=List[LeadResponse])
+@router.get("/leads", response_model=PaginatedLeads)
 def get_leads(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_full_access)
+    current_user: User = Depends(get_current_full_access),
+    skip: int = 0,
+    limit: int = 20,
+    search: str | None = None
 ):
     query = db.query(Lead)
-    if current_user.role == "agency":
+    if current_user.role == "admin":
+        pass # Admin vê tudo
+    elif current_user.role == "agency":
         broker_ids = [b.id for b in current_user.brokers]
         broker_ids.append(current_user.id)
-        query = query.filter(Lead.broker_id.in_(broker_ids))
+        # Agências veem leads de seus corretores OU leads sem corretor (site/marketplace)
+        query = query.filter(or_(Lead.broker_id.in_(broker_ids), Lead.broker_id == None))
     else:
+        # Corretores veem apenas seus próprios leads
         query = query.filter(Lead.broker_id == current_user.id)
     
-    leads = query.all()
+    if search:
+        query = query.filter(
+            or_(
+                Lead.name.ilike(f"%{search}%"),
+                Lead.email.ilike(f"%{search}%"),
+                Lead.phone.ilike(f"%{search}%")
+            )
+        )
+        
+    total = query.count()
+    leads = query.order_by(Lead.created_at.desc()).offset(skip).limit(limit).all()
+    
     # Adicionar nome do broker para o frontend
     for l in leads:
         l.broker_name = l.broker.name if l.broker else "Plataforma"
-    return leads
+        
+    return {
+        "items": leads,
+        "total": total,
+        "page": (skip // limit) + 1,
+        "limit": limit
+    }
 
 @router.post("/leads", response_model=LeadResponse)
 def create_lead_manual(

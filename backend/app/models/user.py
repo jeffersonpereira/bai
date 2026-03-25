@@ -10,7 +10,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String)
-    role = Column(String, default="user") # user, broker, agency, admin
+    role = Column(String, default="user", index=True) # user, broker, agency, admin
     phone = Column(String, nullable=True)
     creci = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -26,3 +26,4 @@ class User(Base):
     leads = relationship("Lead", back_populates="broker")
     favorites = relationship("Favorite", back_populates="user")
     assigned_properties = relationship("Property", secondary="property_assignments", back_populates="assigned_brokers")
+    buyer_profiles = relationship("BuyerProfile", back_populates="user")

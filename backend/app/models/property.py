@@ -9,7 +9,7 @@ class Property(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
     description = Column(String)
-    price = Column(Float, nullable=False)
+    price = Column(Float, nullable=False, index=True)
     area = Column(Float)
     bedrooms = Column(Integer)
     bathrooms = Column(Integer)
@@ -17,12 +17,13 @@ class Property(Base):
     financing_eligible = Column(Integer, default=0) # boolean via integer proxy no sqlite
     city = Column(String, index=True)
     neighborhood = Column(String, index=True)
+    full_address = Column(String)
     source_url = Column(String, unique=True)
     image_url = Column(String)
     source = Column(String)
-    listing_type = Column(String, default="venda") # venda, aluguel, temporada
-    property_type = Column(String, default="apartamento") # casa, apartamento, terreno, comercial
-    status = Column(String, default="active") # active, archived, pending
+    listing_type = Column(String, default="venda", index=True) # venda, aluguel, temporada
+    property_type = Column(String, default="apartamento", index=True) # casa, apartamento, terreno, comercial
+    status = Column(String, default="active", index=True) # active, archived, pending
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True) # O corretor/imobiliária
     actual_owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True) # O dono real do imóvel (cliente do corretor)
     commission_percentage = Column(Float, nullable=True) # Ex: 6.0
@@ -35,3 +36,4 @@ class Property(Base):
     favorited_by = relationship("Favorite", back_populates="property")
     assigned_brokers = relationship("User", secondary="property_assignments", back_populates="assigned_properties")
     media = relationship("PropertyMedia", back_populates="property", cascade="all, delete-orphan")
+    availability_windows = relationship("PropertyAvailability", back_populates="property", cascade="all, delete-orphan")

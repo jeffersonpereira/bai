@@ -8,10 +8,12 @@ class Appointment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
-    broker_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Corretor ou Agência responsável
+    broker_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Corretor/Agência responsável
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Se o comprador estiver logado
     visitor_name = Column(String, nullable=False)
     visitor_phone = Column(String, nullable=False)
-    visit_date = Column(DateTime(timezone=True), nullable=False)
+    visit_date = Column(DateTime(timezone=True), nullable=False) # Início
+    visit_end_time = Column(DateTime(timezone=True), nullable=True) # Fim sugerido
     status = Column(String, default="pending") # pending, confirmed, cancelled, completed
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

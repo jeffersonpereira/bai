@@ -50,6 +50,20 @@ def get_proposals(
     return seller_service.get_property_proposals(db, property_id, current_user.id)
 
 
+@router.get("/properties/{property_id}/ranking")
+def get_ranking(
+    property_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Ranking de possível negócio: pontua compradores por engajamento
+    (propostas, visitas, favoritos, leads).
+    Spec: 'ranking de possível negócio' e 'fechamento de negócio'.
+    """
+    return seller_service.get_property_ranking(db, property_id, current_user.id)
+
+
 @router.patch("/proposals/{proposal_id}/decision")
 def decide_proposal(
     proposal_id: int,

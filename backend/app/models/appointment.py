@@ -17,6 +17,7 @@ class Appointment(Base):
     visit_end_time = Column(DateTime(timezone=True), nullable=True) # Fim sugerido
     status = Column(String, default="pending") # pending, confirmed, cancelled, completed
     notes = Column(Text, nullable=True)
+    feedback_visita = Column(Text, nullable=True)  # Feedback pós-visita (spec: feedback_visita)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relações

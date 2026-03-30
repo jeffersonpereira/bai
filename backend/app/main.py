@@ -20,7 +20,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-from app.routers import auth, properties, crm, appointments, favorites, match, admin, team, proposals, seller
+from app.routers import auth, properties, crm, appointments, favorites, match, admin, team, proposals, seller, comissoes, views
 
 PREFIX = "/api/v1"
 app.include_router(auth.router, prefix=PREFIX)
@@ -33,6 +33,8 @@ app.include_router(admin.router, prefix=PREFIX)
 app.include_router(team.router, prefix=PREFIX)
 app.include_router(proposals.router, prefix=PREFIX)
 app.include_router(seller.router, prefix=PREFIX)
+app.include_router(comissoes.router, prefix=PREFIX)
+app.include_router(views.router, prefix=PREFIX)
 
 
 @app.get("/")

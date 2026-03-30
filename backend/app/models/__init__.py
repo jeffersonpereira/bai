@@ -11,3 +11,5 @@ import app.models.buyer_profile
 import app.models.activity
 import app.models.media
 import app.models.proposal
+import app.models.property_view
+import app.models.comissao

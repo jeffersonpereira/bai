@@ -5,6 +5,7 @@ from app.models.property import Property
 from app.models.lead import Lead
 from app.models.appointment import Appointment
 from app.models.proposal import Proposal
+from app.models.favorite import Favorite
 from app.models.user import User
 
 
@@ -107,6 +108,53 @@ def get_property_proposals(db: Session, property_id: int, user_id: int) -> list:
         }
         for p in proposals
     ]
+
+
+def get_property_ranking(db: Session, property_id: int, user_id: int) -> list:
+    """
+    Ranking de possível negócio por imóvel.
+    Pontuação: proposta aceita=100, proposta pendente=70, visita realizada=50,
+    visita pendente=40, favorito (nivel_interesse*10)=10-50, lead=20.
+    Spec: 'ranking de possível negócio' e 'fechamento de negócio'.
+    """
+    _assert_owns_property(db, property_id, user_id)
+
+    scores: dict[str, dict] = {}  # keyed by nome+contato
+
+    def upsert(name: str, contact: str, source: str, delta: int) -> None:
+        key = f"{name}|{contact}"
+        if key not in scores:
+            scores[key] = {"nome": name, "contato": contact, "fontes": [], "score": 0}
+        scores[key]["score"] += delta
+        scores[key]["fontes"].append(source)
+
+    # Propostas
+    for p in db.query(Proposal).filter(Proposal.property_id == property_id).all():
+        delta = 100 if p.status == "aceita" else 70 if p.status == "pendente" else 30
+        upsert(p.buyer_name, p.buyer_email or p.buyer_phone or "", f"proposta:{p.status}", delta)
+
+    # Visitas
+    for a in db.query(Appointment).filter(Appointment.property_id == property_id).all():
+        delta = 50 if a.status == "completed" else 40 if a.status == "confirmed" else 25
+        upsert(a.visitor_name, a.visitor_phone, f"visita:{a.status}", delta)
+
+    # Favoritos com nivel_interesse
+    favs = (
+        db.query(Favorite, User)
+        .join(User, Favorite.user_id == User.id)
+        .filter(Favorite.property_id == property_id)
+        .all()
+    )
+    for fav, usr in favs:
+        nivel = fav.nivel_interesse or 3
+        upsert(usr.name or usr.email, usr.email or usr.phone or "", f"favorito:nivel{nivel}", nivel * 10)
+
+    # Leads
+    for lead in db.query(Lead).filter(Lead.property_id == property_id).all():
+        upsert(lead.name, lead.email or lead.phone or "", f"lead:{lead.status}", 20)
+
+    ranking = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
+    return ranking
 
 
 SELLER_ALLOWED_STATUSES = {"aceita", "recusada", "contraproposta"}

@@ -46,6 +46,7 @@ class PropertyCreate(BaseModel):
     title: str
     description: str | None = None
     price: float
+    valor_aluguel: float | None = None
     area: float | None = None
     bedrooms: int | None = None
     bathrooms: int | None = None
@@ -53,6 +54,7 @@ class PropertyCreate(BaseModel):
     financing_eligible: bool | None = False
     city: str | None = None
     neighborhood: str | None = None
+    state: str | None = None
     full_address: str | None = None
     source_url: str | None = None
     image_url: str | None = None
@@ -62,6 +64,7 @@ class PropertyCreate(BaseModel):
     status: str | None = "active"
     actual_owner_id: int | None = None
     commission_percentage: float | None = None
+    atributos_extras: dict | None = None
     media: List[PropertyMediaBase] = []
     availability_windows: List[AvailabilityCreate] = []
 
@@ -74,7 +77,8 @@ class PropertyResponse(PropertyCreate):
     created_at: datetime | None = None
     last_analysis_at: datetime | None = None
     is_star: bool | None = False
-    state: str | None = None
+    valor_aluguel: float | None = None
+    atributos_extras: dict | None = None
     market_score: float | None = 0.0
     media: List[PropertyMediaBase] = []
     availability_windows: List[AvailabilityResponse] = []

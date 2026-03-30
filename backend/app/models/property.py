@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -30,6 +30,8 @@ class Property(Base):
     actual_owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True) # O dono real do imóvel (cliente do corretor)
     commission_percentage = Column(Float, nullable=True) # Ex: 6.0
     market_score = Column(Float, default=0.0) # Pontuação de oportunidade 0-100
+    valor_aluguel = Column(Float, nullable=True)  # Preço de aluguel separado do de venda
+    atributos_extras = Column(JSON, nullable=True)  # Ex: {"piscina": true, "varanda": true, "academia": false}
     is_star = Column(Boolean, default=False) # Flag para "Oportunidade Estrela"
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

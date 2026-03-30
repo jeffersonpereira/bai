@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from ..db.database import Base
+from app.db.database import Base
 
 class Mandate(Base):
     __tablename__ = "mandates"

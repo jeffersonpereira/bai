@@ -3,14 +3,13 @@ from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime
-from ..db.database import get_db
-from ..models.appointment import Appointment
-from ..models.property import Property
-from ..models.user import User
+import jwt
+from app.db.database import get_db
+from app.models.appointment import Appointment
+from app.models.property import Property
+from app.models.user import User
 from .auth import get_current_user, oauth2_scheme
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
-from ..core.config import settings
+from app.core.config import settings
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -41,7 +40,7 @@ async def get_optional_current_user(db: Session = Depends(get_db), token: str | 
     if not token:
         return None
     try:
-        from ..core.config import settings
+        from app.core.config import settings
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:

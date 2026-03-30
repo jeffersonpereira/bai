@@ -1,10 +1,11 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from ..db.database import Base
+from app.db.database import Base
 
 class Property(Base):
     __tablename__ = "properties"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
@@ -27,6 +28,9 @@ class Property(Base):
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=True) # O corretor/imobiliária
     actual_owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True) # O dono real do imóvel (cliente do corretor)
     commission_percentage = Column(Float, nullable=True) # Ex: 6.0
+    market_score = Column(Float, default=0.0) # Pontuação de oportunidade 0-100
+    is_star = Column(Integer, default=0) # Flag para "Oportunidade Estrela" (0/1)
+    last_analysis_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     owner = relationship("User", back_populates="properties")
@@ -34,6 +38,13 @@ class Property(Base):
     mandate = relationship("Mandate", back_populates="property", uselist=False)
     leads = relationship("Lead", back_populates="property")
     favorited_by = relationship("Favorite", back_populates="property")
-    assigned_brokers = relationship("User", secondary="property_assignments", back_populates="assigned_properties")
+    assigned_brokers = relationship(
+        "User", 
+        secondary="property_assignments", 
+        primaryjoin="Property.id == PropertyAssignment.property_id",
+        secondaryjoin="User.id == PropertyAssignment.user_id",
+        back_populates="assigned_properties",
+        overlaps="assigned_properties"
+    )
     media = relationship("PropertyMedia", back_populates="property", cascade="all, delete-orphan")
     availability_windows = relationship("PropertyAvailability", back_populates="property", cascade="all, delete-orphan")

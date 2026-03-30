@@ -1,38 +1,40 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .core.config import settings
-from .db.database import engine, Base
-from .models import user, property, favorite, owner, mandate, lead, appointment, buyer_profile, availability
+from app.core.config import settings
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-
-# Criar tabelas SQLite automaticamente (MVP)
-Base.metadata.create_all(bind=engine)
-
-
-app = FastAPI(title=settings.PROJECT_NAME)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-from .routers import auth, properties, favorites, crm, team, admin, appointments, match
+from app.routers import auth, properties, crm, appointments, favorites, match, admin, team, proposals, seller
 
-app.include_router(auth.router)
-app.include_router(properties.router)
-app.include_router(favorites.router)
-app.include_router(crm.router)
-app.include_router(team.router)
-app.include_router(admin.router)
-app.include_router(appointments.router)
-app.include_router(match.router)
+PREFIX = "/api/v1"
+app.include_router(auth.router, prefix=PREFIX)
+app.include_router(properties.router, prefix=PREFIX)
+app.include_router(crm.router, prefix=PREFIX)
+app.include_router(appointments.router, prefix=PREFIX)
+app.include_router(favorites.router, prefix=PREFIX)
+app.include_router(match.router, prefix=PREFIX)
+app.include_router(admin.router, prefix=PREFIX)
+app.include_router(team.router, prefix=PREFIX)
+app.include_router(proposals.router, prefix=PREFIX)
+app.include_router(seller.router, prefix=PREFIX)
+
+
 @app.get("/")
 def read_root():
-    return {"message": "Bem-vindo à API do BAI"}
-
+    return {"message": "Bem-vindo à API do BAI", "version": "1.0", "docs": "/docs"}

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-from ..db.database import get_db
-from ..models.user import User
+from app.db.database import get_db
+from app.models.user import User
 from .auth import get_current_user, UserResponse, get_current_agency
 from pydantic import BaseModel, EmailStr
-from ..core.security import get_password_hash
+from app.core.security import get_password_hash
 
 router = APIRouter(prefix="/team", tags=["team"])
 

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.database import SessionLocal, engine, Base
 from app.models.property import Property
 from app.scraper.core import ImovelScraper
+from app.agents.scout import ScoutAgent
 
 # Assegurar tabelas
 Base.metadata.create_all(bind=engine)
@@ -47,6 +48,12 @@ async def run_scraper():
             await asyncio.sleep(2)
             
         print(f"\nScraping concluído! Foram totalizados {total_inserted} imóveis reais adicionados com sucesso.")
+        
+        # Iniciar Agente Scout para análise de mercado
+        print("\nAcionando Agente Scout para identificar oportunidades...")
+        scout = ScoutAgent()
+        scout.analyze_and_update(db)
+        
     except Exception as e:
         db.rollback()
         print(f"Erro crasso ao salvar no banco: {e}")

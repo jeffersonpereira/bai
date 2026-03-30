@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from ..db.database import Base
+from app.db.database import Base
 
 class PropertyAssignment(Base):
     __tablename__ = "property_assignments"

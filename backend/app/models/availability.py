@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Time
 from sqlalchemy.orm import relationship
-from ..db.database import Base
+from app.db.database import Base
 
 class PropertyAvailability(Base):
     __tablename__ = "property_availability"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)

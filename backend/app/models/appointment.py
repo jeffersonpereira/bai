@@ -1,10 +1,11 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from ..db.database import Base
+from app.db.database import Base
 
 class Appointment(Base):
     __tablename__ = "appointments"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id"), nullable=False)
@@ -20,4 +21,5 @@ class Appointment(Base):
 
     # Relações
     property = relationship("Property", backref="appointments")
-    broker = relationship("User", backref="appointments")
+    broker = relationship("User", foreign_keys=[broker_id], backref="broker_appointments")
+    buyer = relationship("User", foreign_keys=[buyer_id], backref="buyer_appointments")

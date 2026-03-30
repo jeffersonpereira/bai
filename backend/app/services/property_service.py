@@ -79,9 +79,9 @@ def get_properties(
     if max_area is not None:
         query = query.filter(Property.area <= max_area)
     if bedrooms is not None:
-        query = query.filter(Property.bedrooms == bedrooms)
+        query = query.filter(Property.bedrooms >= bedrooms)
     if bathrooms is not None:
-        query = query.filter(Property.bathrooms == bathrooms)
+        query = query.filter(Property.bathrooms >= bathrooms)
     if garage_spaces is not None:
         query = query.filter(Property.garage_spaces >= garage_spaces)
     if financing_eligible:

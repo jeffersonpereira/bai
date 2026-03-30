@@ -19,8 +19,6 @@ def upgrade() -> None:
     # --- properties: novos campos ---
     op.add_column("properties", sa.Column("valor_aluguel", sa.Float(), nullable=True))
     op.add_column("properties", sa.Column("atributos_extras", sa.JSON(), nullable=True))
-    op.add_column("properties", sa.Column("state", sa.String(), nullable=True))
-    op.create_index("ix_properties_state", "properties", ["state"], unique=False)
 
     # --- appointments: feedback pós-visita ---
     op.add_column("appointments", sa.Column("feedback_visita", sa.Text(), nullable=True))
@@ -72,7 +70,5 @@ def downgrade() -> None:
     op.drop_table("property_views")
     op.drop_column("favorites", "nivel_interesse")
     op.drop_column("appointments", "feedback_visita")
-    op.drop_index("ix_properties_state", table_name="properties")
-    op.drop_column("properties", "state")
     op.drop_column("properties", "atributos_extras")
     op.drop_column("properties", "valor_aluguel")

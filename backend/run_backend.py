@@ -8,5 +8,5 @@ sys.path.append(os.getcwd())
 from app.main import app
 
 if __name__ == "__main__":
-    print("Iniciando servidor BAI na porta 8005...")
-    uvicorn.run(app, host="0.0.0.0", port=8005, log_level="debug")
+    print("Iniciando servidor BAI na porta 40001...")
+    uvicorn.run(app, host="0.0.0.0", port=40001, log_level="debug")

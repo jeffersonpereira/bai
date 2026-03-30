@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pdftotext \"BAI.pdf\" -)",
+      "Bash(pdftotext \"Projeto BAI_ Especificação e Arquitetura.pdf\" -)"
+    ]
+  }
+}

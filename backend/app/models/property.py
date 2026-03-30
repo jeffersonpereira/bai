@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -15,9 +15,10 @@ class Property(Base):
     bedrooms = Column(Integer)
     bathrooms = Column(Integer)
     garage_spaces = Column(Integer, default=0)
-    financing_eligible = Column(Integer, default=0) # boolean via integer proxy no sqlite
+    financing_eligible = Column(Boolean, default=False)
     city = Column(String, index=True)
     neighborhood = Column(String, index=True)
+    state = Column(String, index=True, nullable=True)
     full_address = Column(String)
     source_url = Column(String, unique=True)
     image_url = Column(String)
@@ -29,7 +30,7 @@ class Property(Base):
     actual_owner_id = Column(Integer, ForeignKey("owners.id"), nullable=True) # O dono real do imóvel (cliente do corretor)
     commission_percentage = Column(Float, nullable=True) # Ex: 6.0
     market_score = Column(Float, default=0.0) # Pontuação de oportunidade 0-100
-    is_star = Column(Integer, default=0) # Flag para "Oportunidade Estrela" (0/1)
+    is_star = Column(Boolean, default=False) # Flag para "Oportunidade Estrela"
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

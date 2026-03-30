@@ -73,7 +73,8 @@ class PropertyResponse(PropertyCreate):
     actual_owner: PropertyOwnerBase | None = None
     created_at: datetime | None = None
     last_analysis_at: datetime | None = None
-    is_star: int | None = 0
+    is_star: bool | None = False
+    state: str | None = None
     market_score: float | None = 0.0
     media: List[PropertyMediaBase] = []
     availability_windows: List[AvailabilityResponse] = []

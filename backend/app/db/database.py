@@ -4,10 +4,17 @@ from app.core.config import settings
 
 
 def _make_engine():
+    url = settings.DATABASE_URL
     kwargs = {}
-    if settings.DATABASE_URL.startswith("sqlite"):
+    if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
-    return create_engine(settings.DATABASE_URL, **kwargs)
+    else:
+        # PostgreSQL / Neon: desativa pool pre-ping e usa pool_size adequado
+        kwargs["pool_pre_ping"] = True
+        kwargs["pool_size"] = 5
+        kwargs["max_overflow"] = 10
+        kwargs["pool_recycle"] = 300
+    return create_engine(url, **kwargs)
 
 
 engine = _make_engine()

@@ -85,7 +85,7 @@ def get_properties(
     if garage_spaces is not None:
         query = query.filter(Property.garage_spaces >= garage_spaces)
     if financing_eligible:
-        query = query.filter(Property.financing_eligible == 1)
+        query = query.filter(Property.financing_eligible == True)
     if source:
         query = query.filter(Property.source == source)
     if listing_type:
@@ -93,7 +93,7 @@ def get_properties(
     if property_type:
         query = query.filter(Property.property_type.in_(property_type))
     if is_star is not None:
-        query = query.filter(Property.is_star == (1 if is_star else 0))
+        query = query.filter(Property.is_star == is_star)
 
     total = query.count()
     skip = (page - 1) * limit

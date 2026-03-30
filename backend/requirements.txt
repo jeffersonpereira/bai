@@ -9,3 +9,4 @@ beautifulsoup4
 pytest
 pyjwt
 passlib[bcrypt]
+psycopg2-binary

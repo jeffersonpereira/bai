@@ -7,9 +7,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "BAI Plataforma Imóveis"
     DEBUG: bool = False
     DATABASE_URL: str = "sqlite:///./bai.db"
+    DATABASE_URL_UNPOOLED: str = ""  # Usado pelo Alembic (sem pgbouncer)
     SECRET_KEY: str = "DEV_SUPER_SECRET_KEY"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 30 minutos
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 

@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      let url = `http://localhost:40001/api/v1/admin/users?`;
+      let url = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:40001"}/api/v1/admin/users?`;
       if (selectedRole) url += `role=${selectedRole}&`;
       if (searchQuery) url += `q=${searchQuery}&`;
 
@@ -61,7 +61,7 @@ export default function AdminUsersPage() {
   const handleUpdate = async () => {
     if (!editingUser) return;
     try {
-      const res = await fetch(`http://localhost:40001/api/v1/admin/users/${editingUser.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:40001"}/api/v1/admin/users/${editingUser.id}`, {
         method: "PATCH",
         headers: { 
           Authorization: `Bearer ${token}`,

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from ..db.database import Base
+from app.db.database import Base
 
 class BuyerProfile(Base):
     __tablename__ = "buyer_profiles"

@@ -1,16 +1,19 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, backref
-from ..db.database import Base
+from app.db.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     name = Column(String)
     role = Column(String, default="user", index=True) # user, broker, agency, admin
+    plan_type = Column(String, default="free", index=True) # free, pro, premium
+    plan_expires_at = Column(DateTime(timezone=True), nullable=True)
     phone = Column(String, nullable=True)
     creci = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -25,5 +28,12 @@ class User(Base):
     mandates = relationship("Mandate", back_populates="broker")
     leads = relationship("Lead", back_populates="broker")
     favorites = relationship("Favorite", back_populates="user")
-    assigned_properties = relationship("Property", secondary="property_assignments", back_populates="assigned_brokers")
+    assigned_properties = relationship(
+        "Property", 
+        secondary="property_assignments", 
+        primaryjoin="User.id == PropertyAssignment.user_id",
+        secondaryjoin="Property.id == PropertyAssignment.property_id",
+        back_populates="assigned_brokers",
+        overlaps="assigned_brokers"
+    )
     buyer_profiles = relationship("BuyerProfile", back_populates="user")

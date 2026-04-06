@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ..db.database import get_db
-from ..models.favorite import Favorite
-from ..models.property import Property
-from ..models.user import User
+from app.db.database import get_db
+from app.models.favorite import Favorite
+from app.models.property import Property
+from app.models.user import User
 from .auth import get_current_user
 from pydantic import BaseModel
 from .properties import PropertyResponse

@@ -1,6 +1,15 @@
-from .user import User
-from .property import Property
-from .favorite import Favorite
-from .buyer_profile import BuyerProfile
-from .availability import PropertyAvailability
-from .appointment import Appointment
+import app.models.user
+import app.models.property
+import app.models.favorite
+import app.models.owner
+import app.models.mandate
+import app.models.lead
+import app.models.appointment
+import app.models.availability
+import app.models.assignment
+import app.models.buyer_profile
+import app.models.activity
+import app.models.media
+import app.models.proposal
+import app.models.property_view
+import app.models.comissao

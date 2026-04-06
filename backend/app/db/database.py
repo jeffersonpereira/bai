@@ -9,7 +9,7 @@ def _make_engine():
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
     else:
-        # PostgreSQL / Neon: desativa pool pre-ping e usa pool_size adequado
+        # PostgreSQL / Supabase: mantém pool pre-ping ativado e pool_size adequado (limite de conexões do Supabase na porta 5432)
         kwargs["pool_pre_ping"] = True
         kwargs["pool_size"] = 5
         kwargs["max_overflow"] = 10

@@ -47,7 +47,7 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
   };
 
   // Dedicated handlers for custom inputs
-  const handleCustomChange = (name: string, value: string) => {
+  const handleCustomChange = (name: string, value: any) => {
     setParams(prev => ({ ...prev, [name]: value }));
   };
 

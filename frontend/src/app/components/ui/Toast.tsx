@@ -96,7 +96,7 @@ const toastIcons: Record<ToastType, React.ReactNode> = {
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const [exiting, setExiting] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const style = toastStyles[toast.type];
   const duration = toast.duration ?? 4000;
 

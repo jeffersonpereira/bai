@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime, time
 from typing import List
 
@@ -43,27 +43,27 @@ class PropertyOwnerBase(BaseModel):
 
 
 class PropertyCreate(BaseModel):
-    title: str
+    title: str = Field(..., min_length=3, max_length=300)
     description: str | None = None
-    price: float
-    valor_aluguel: float | None = None
-    area: float | None = None
-    bedrooms: int | None = None
-    bathrooms: int | None = None
-    garage_spaces: int | None = 0
+    price: float = Field(..., gt=0, description="Preço deve ser positivo")
+    valor_aluguel: float | None = Field(None, gt=0)
+    area: float | None = Field(None, gt=0)
+    bedrooms: int | None = Field(None, ge=0, le=50)
+    bathrooms: int | None = Field(None, ge=0, le=50)
+    garage_spaces: int | None = Field(0, ge=0, le=100)
     financing_eligible: bool | None = False
     city: str | None = None
     neighborhood: str | None = None
-    state: str | None = None
+    state: str | None = Field(None, max_length=2)
     full_address: str | None = None
     source_url: str | None = None
     image_url: str | None = None
     source: str | None = None
-    listing_type: str | None = "venda"
-    property_type: str | None = "apartamento"
-    status: str | None = "active"
+    listing_type: str | None = Field("venda", pattern="^(venda|aluguel|ambos|temporada)$")
+    property_type: str | None = Field("apartamento", pattern="^(apartamento|casa|terreno|comercial)$")
+    status: str | None = Field("active", pattern="^(active|archived|pending|sold|rented)$")
     actual_owner_id: int | None = None
-    commission_percentage: float | None = None
+    commission_percentage: float | None = Field(None, ge=0, le=100)
     atributos_extras: dict | None = None
     media: List[PropertyMediaBase] = []
     availability_windows: List[AvailabilityCreate] = []
@@ -80,6 +80,7 @@ class PropertyResponse(PropertyCreate):
     valor_aluguel: float | None = None
     atributos_extras: dict | None = None
     market_score: float | None = 0.0
+    views_count: int | None = 0
     media: List[PropertyMediaBase] = []
     availability_windows: List[AvailabilityResponse] = []
 

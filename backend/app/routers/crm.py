@@ -24,6 +24,15 @@ def create_owner(
     return crm_service.create_owner(db, owner_in, current_user.id)
 
 
+@router.get("/owners/{owner_id}/portfolio")
+def get_owner_portfolio(
+    owner_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_full_access),
+):
+    return crm_service.get_owner_portfolio(db, owner_id, current_user)
+
+
 @router.put("/owners/{owner_id}", response_model=OwnerResponse)
 def update_owner(
     owner_id: int,

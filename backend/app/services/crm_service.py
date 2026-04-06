@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func, distinct
 from fastapi import HTTPException
 
 from app.models.owner import Owner
@@ -8,6 +8,9 @@ from app.models.mandate import Mandate
 from app.models.user import User
 from app.models.activity import LeadActivity
 from app.models.property import Property
+from app.models.appointment import Appointment
+from app.models.proposal import Proposal
+from app.models.favorite import Favorite
 from app.schemas.owner import OwnerCreate
 from app.schemas.lead import LeadCreate, ActivityCreate
 
@@ -69,6 +72,148 @@ def get_owners(db: Session, current_user: User, skip: int, limit: int, search: s
         "total": total,
         "page": (skip // limit) + 1,
         "limit": limit,
+    }
+
+
+def get_owner_portfolio(db: Session, owner_id: int, current_user: User) -> dict:
+    """Retorna o portfólio completo de um proprietário com stats agregados em queries únicas."""
+    owner = db.query(Owner).filter(Owner.id == owner_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Proprietário não encontrado")
+
+    broker_ids = [current_user.id]
+    if current_user.role == "agency":
+        broker_ids += [b.id for b in current_user.brokers]
+    if owner.broker_id not in broker_ids:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    properties = db.query(Property).filter(Property.actual_owner_id == owner_id).all()
+    if not properties:
+        broker = db.query(User).filter(User.id == owner.broker_id).first()
+        return {
+            "owner": {"id": owner.id, "name": owner.name, "email": owner.email,
+                      "phone": owner.phone, "notes": owner.notes},
+            "broker": {"name": broker.name if broker else None, "phone": broker.phone if broker else None,
+                       "email": broker.email if broker else None, "creci": broker.creci if broker else None},
+            "totals": {"properties": 0, "visits": 0, "proposals": 0, "leads": 0, "pending_proposals": 0},
+            "properties": [],
+        }
+
+    prop_ids = [p.id for p in properties]
+
+    # ── Aggregações em queries únicas ──────────────────────────────────────────
+    visit_counts = dict(
+        db.query(Appointment.property_id, func.count(Appointment.id))
+        .filter(Appointment.property_id.in_(prop_ids))
+        .group_by(Appointment.property_id).all()
+    )
+    proposal_counts = dict(
+        db.query(Proposal.property_id, func.count(Proposal.id))
+        .filter(Proposal.property_id.in_(prop_ids))
+        .group_by(Proposal.property_id).all()
+    )
+    pending_counts = dict(
+        db.query(Proposal.property_id, func.count(Proposal.id))
+        .filter(Proposal.property_id.in_(prop_ids), Proposal.status == "pendente")
+        .group_by(Proposal.property_id).all()
+    )
+    lead_counts = dict(
+        db.query(Lead.property_id, func.count(Lead.id))
+        .filter(Lead.property_id.in_(prop_ids))
+        .group_by(Lead.property_id).all()
+    )
+    fav_counts = dict(
+        db.query(Favorite.property_id, func.count(distinct(Favorite.id)))
+        .filter(Favorite.property_id.in_(prop_ids))
+        .group_by(Favorite.property_id).all()
+    )
+
+    # Próximas visitas (uma por imóvel, status pending/confirmed, mais cedo primeiro)
+    upcoming_visits = (
+        db.query(Appointment)
+        .filter(Appointment.property_id.in_(prop_ids), Appointment.status.in_(("pending", "confirmed")))
+        .order_by(Appointment.visit_date.asc())
+        .all()
+    )
+    next_visit_by_prop: dict = {}
+    for v in upcoming_visits:
+        if v.property_id not in next_visit_by_prop:
+            next_visit_by_prop[v.property_id] = v
+
+    # Todas as visitas e propostas para exibição detalhada
+    all_visits = (
+        db.query(Appointment)
+        .filter(Appointment.property_id.in_(prop_ids))
+        .order_by(Appointment.visit_date.desc())
+        .all()
+    )
+    all_proposals = (
+        db.query(Proposal)
+        .filter(Proposal.property_id.in_(prop_ids))
+        .order_by(Proposal.created_at.desc())
+        .all()
+    )
+
+    visits_by_prop: dict[int, list] = {pid: [] for pid in prop_ids}
+    for v in all_visits:
+        visits_by_prop[v.property_id].append(v)
+
+    proposals_by_prop: dict[int, list] = {pid: [] for pid in prop_ids}
+    for pr in all_proposals:
+        proposals_by_prop[pr.property_id].append(pr)
+
+    # ── Montagem do portfólio ──────────────────────────────────────────────────
+    totals = {"properties": len(properties), "visits": 0, "proposals": 0,
+              "leads": 0, "pending_proposals": 0}
+    portfolio = []
+
+    for p in properties:
+        vc = visit_counts.get(p.id, 0)
+        pc = proposal_counts.get(p.id, 0)
+        pend = pending_counts.get(p.id, 0)
+        lc = lead_counts.get(p.id, 0)
+        fc = fav_counts.get(p.id, 0)
+        nv = next_visit_by_prop.get(p.id)
+
+        totals["visits"] += vc
+        totals["proposals"] += pc
+        totals["leads"] += lc
+        totals["pending_proposals"] += pend
+
+        portfolio.append({
+            "id": p.id, "title": p.title, "price": p.price,
+            "valor_aluguel": p.valor_aluguel, "city": p.city,
+            "neighborhood": p.neighborhood, "image_url": p.image_url,
+            "listing_type": p.listing_type, "status": p.status,
+            "commission_percentage": p.commission_percentage,
+            "created_at": p.created_at,
+            "leads_count": lc, "visits_count": vc,
+            "proposals_count": pc, "pending_proposals": pend, "favorites_count": fc,
+            "next_visit": {
+                "date": nv.visit_date, "visitor": nv.visitor_name, "status": nv.status,
+            } if nv else None,
+            "visits": [
+                {"id": v.id, "visitor_name": v.visitor_name, "visitor_phone": v.visitor_phone,
+                 "visit_date": v.visit_date, "status": v.status,
+                 "notes": v.notes, "feedback_visita": v.feedback_visita}
+                for v in visits_by_prop[p.id]
+            ],
+            "proposals": [
+                {"id": pr.id, "buyer_name": pr.buyer_name, "buyer_phone": pr.buyer_phone,
+                 "proposed_price": pr.proposed_price, "payment_method": pr.payment_method,
+                 "status": pr.status, "created_at": pr.created_at, "message": pr.message}
+                for pr in proposals_by_prop[p.id]
+            ],
+        })
+
+    broker = db.query(User).filter(User.id == owner.broker_id).first()
+    return {
+        "owner": {"id": owner.id, "name": owner.name, "email": owner.email,
+                  "phone": owner.phone, "notes": owner.notes},
+        "broker": {"name": broker.name if broker else None, "phone": broker.phone if broker else None,
+                   "email": broker.email if broker else None, "creci": broker.creci if broker else None},
+        "totals": totals,
+        "properties": portfolio,
     }
 
 

@@ -11,8 +11,8 @@ class Property(Base):
     title = Column(String, index=True, nullable=False)
     description = Column(String)
     price = Column(Float, nullable=False, index=True)
-    area = Column(Float)
-    bedrooms = Column(Integer)
+    area = Column(Float, index=True)
+    bedrooms = Column(Integer, index=True)
     bathrooms = Column(Integer)
     garage_spaces = Column(Integer, default=0)
     financing_eligible = Column(Boolean, default=False)
@@ -34,7 +34,8 @@ class Property(Base):
     atributos_extras = Column(JSON, nullable=True)  # Ex: {"piscina": true, "varanda": true, "academia": false}
     is_star = Column(Boolean, default=False) # Flag para "Oportunidade Estrela"
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    views_count = Column(Integer, default=0, server_default="0", index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     owner = relationship("User", back_populates="properties")
     actual_owner = relationship("Owner", back_populates="properties")

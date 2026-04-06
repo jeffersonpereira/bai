@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -11,6 +11,17 @@ from app.models.property import Property
 from app.models.user import User
 from .auth import get_current_user, oauth2_scheme
 from app.core.config import settings
+
+class PropertyBriefResponse(BaseModel):
+    id: int
+    title: str
+    city: str | None
+    neighborhood: str | None
+    price: float
+    image_url: str | None
+
+    class Config:
+        from_attributes = True
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
@@ -35,6 +46,7 @@ class AppointmentResponse(BaseModel):
     created_at: datetime
     buyer_id: int | None
     feedback_visita: str | None = None
+    property: PropertyBriefResponse | None = None
     
     class Config:
         from_attributes = True
@@ -93,16 +105,19 @@ def schedule_visit(
 
 @router.get("/", response_model=List[AppointmentResponse])
 def get_my_appointments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Otimização N+1: Carrega o imóvel antecipadamente
+    query = db.query(Appointment).options(joinedload(Appointment.property))
+    
     # Se for comprador (user), vê as visitas que agendou
     if current_user.role == 'user':
-        return db.query(Appointment).filter(Appointment.buyer_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
+        return query.filter(Appointment.buyer_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
         
     # Agência vê todas as visitas para os imóveis cujo owner_id é o dela (dela ou do seu time)
     if current_user.role == 'agency':
-        return db.query(Appointment).join(Property).filter(Property.owner_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
+        return query.join(Property).filter(Property.owner_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
     else:
         # Corretor vê apenas as dele
-        return db.query(Appointment).filter(Appointment.broker_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
+        return query.filter(Appointment.broker_id == current_user.id).order_by(Appointment.visit_date.asc()).all()
 
 @router.patch("/{appointment_id}/status")
 def change_appointment_status(

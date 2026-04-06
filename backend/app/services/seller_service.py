@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from fastapi import HTTPException
 
 from app.models.property import Property
@@ -17,18 +18,36 @@ def _assert_owns_property(db: Session, property_id: int, user_id: int) -> Proper
 
 
 def get_seller_properties(db: Session, user_id: int) -> list:
-    """All properties where user is the manager/owner, with aggregated stats."""
-    properties = db.query(Property).filter(Property.owner_id == user_id, Property.status == "active").all()
-    result = []
-    for p in properties:
-        leads_count = db.query(Lead).filter(Lead.property_id == p.id).count()
-        visits_count = db.query(Appointment).filter(Appointment.property_id == p.id).count()
-        proposals_count = db.query(Proposal).filter(Proposal.property_id == p.id).count()
-        pending_proposals = db.query(Proposal).filter(
-            Proposal.property_id == p.id,
-            Proposal.status == "pendente",
-        ).count()
-        result.append({
+    """All properties where user is the manager/owner, with aggregated stats in bulk queries."""
+    properties = db.query(Property).filter(Property.owner_id == user_id).all()
+    if not properties:
+        return []
+
+    prop_ids = [p.id for p in properties]
+
+    leads_map = dict(
+        db.query(Lead.property_id, func.count(Lead.id))
+        .filter(Lead.property_id.in_(prop_ids))
+        .group_by(Lead.property_id).all()
+    )
+    visits_map = dict(
+        db.query(Appointment.property_id, func.count(Appointment.id))
+        .filter(Appointment.property_id.in_(prop_ids))
+        .group_by(Appointment.property_id).all()
+    )
+    proposals_map = dict(
+        db.query(Proposal.property_id, func.count(Proposal.id))
+        .filter(Proposal.property_id.in_(prop_ids))
+        .group_by(Proposal.property_id).all()
+    )
+    pending_map = dict(
+        db.query(Proposal.property_id, func.count(Proposal.id))
+        .filter(Proposal.property_id.in_(prop_ids), Proposal.status == "pendente")
+        .group_by(Proposal.property_id).all()
+    )
+
+    return [
+        {
             "id": p.id,
             "title": p.title,
             "price": p.price,
@@ -38,12 +57,13 @@ def get_seller_properties(db: Session, user_id: int) -> list:
             "listing_type": p.listing_type,
             "status": p.status,
             "created_at": p.created_at,
-            "leads_count": leads_count,
-            "visits_count": visits_count,
-            "proposals_count": proposals_count,
-            "pending_proposals": pending_proposals,
-        })
-    return result
+            "leads_count": leads_map.get(p.id, 0),
+            "visits_count": visits_map.get(p.id, 0),
+            "proposals_count": proposals_map.get(p.id, 0),
+            "pending_proposals": pending_map.get(p.id, 0),
+        }
+        for p in properties
+    ]
 
 
 def get_property_leads(db: Session, property_id: int, user_id: int) -> list:

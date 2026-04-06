@@ -12,6 +12,8 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     name = Column(String)
     role = Column(String, default="user", index=True) # user, broker, agency, admin
+    plan_type = Column(String, default="free", index=True) # free, pro, premium
+    plan_expires_at = Column(DateTime(timezone=True), nullable=True)
     phone = Column(String, nullable=True)
     creci = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from datetime import datetime
+from uuid import UUID
 
 _ALLOWED_REGISTER_ROLES = {"user", "broker", "agency"}
 
@@ -13,7 +14,7 @@ class UserCreate(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: int | str | UUID
     email: str
     name: str | None = None
     role: str
@@ -21,13 +22,13 @@ class UserResponse(BaseModel):
     plan_expires_at: datetime | None = None
     phone: str | None = None
     creci: str | None = None
-    parent_id: int | None = None
+    parent_id: int | str | UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserAdminResponse(BaseModel):
-    id: int
+    id: int | str | UUID
     email: str
     name: str | None = None
     role: str

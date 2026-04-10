@@ -16,8 +16,10 @@ class Lead(Base):
     source = Column(String)  # marketplace, site, indicacao
     status = Column(String, default="novo")  # novo, contatado, visita, proposta, fechado, perdido
     notes = Column(String)
+    is_bot_paused = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     property = relationship("Property", back_populates="leads")
     broker = relationship("User", back_populates="leads")
     activities = relationship("LeadActivity", back_populates="lead", cascade="all, delete-orphan")
+    whatsapp_messages = relationship("WhatsAppMessage", back_populates="lead", cascade="all, delete-orphan")

@@ -8,3 +8,4 @@ pytest
 pyjwt
 passlib[bcrypt]
 psycopg2-binary
+google-generativeai

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://bai-psi-neon.vercel.app"]
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    LLM_API_KEY: str = ""
+    WHATSAPP_NODE_URL: str = "http://127.0.0.1:40002"
+    WHATSAPP_NODE_API_KEY: str = "bai_internal_node_key_troque_em_producao"
 
     @field_validator("SECRET_KEY")
     @classmethod

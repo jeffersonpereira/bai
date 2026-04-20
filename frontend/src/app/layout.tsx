@@ -16,14 +16,20 @@ export const metadata: Metadata = {
     template: "%s | BAI",
   },
   description:
-    "Agregador premium de imóveis. Vasculhamos a web para trazer as melhores oportunidades em um só lugar, com alta velocidade.",
-  keywords: ["imóveis", "comprar imóvel", "alugar", "corretor", "imobiliária", "agregador"],
+    "Marketplace bidirecional do setor imobiliário. Conectamos compradores, vendedores, corretores e imobiliárias de forma direta, rápida e sem intermediários.",
+  keywords: ["imóveis", "comprar imóvel", "alugar", "corretor", "imobiliária", "marketplace imobiliário", "vender imóvel"],
   openGraph: {
     type:        "website",
     locale:      "pt_BR",
     siteName:    "BAI Plataforma de Imóveis",
-    title:       "BAI — Encontre o imóvel perfeito",
-    description: "Agregador premium de imóveis. Melhores oportunidades em um só lugar.",
+    title:       "BAI — O marketplace bidirecional do setor imobiliário",
+    description: "Conectamos compradores, vendedores, corretores e imobiliárias. Negocie diretamente, sem complicação.",
+  },
+  twitter: {
+    card:        "summary_large_image",
+    title:       "BAI — O marketplace bidirecional do setor imobiliário",
+    description: "Conectamos compradores, vendedores, corretores e imobiliárias. Negocie diretamente, sem complicação.",
+    site:        "@bai_imoveis",
   },
   robots: { index: true, follow: true },
 };

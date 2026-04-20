@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, JSON, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -36,6 +36,9 @@ class Property(Base):
     last_analysis_at = Column(DateTime(timezone=True), nullable=True)
     views_count = Column(Integer, default=0, server_default="0", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    lat = Column(Numeric(10, 7), nullable=True)
+    lng = Column(Numeric(10, 7), nullable=True)
+    # coluna `location geometry(Point,4326)` gerenciada por trigger PostgreSQL (PostGIS)
 
     owner = relationship("User", back_populates="properties")
     actual_owner = relationship("Owner", back_populates="properties")

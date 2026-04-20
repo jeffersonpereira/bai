@@ -195,9 +195,6 @@ def get_properties(
     if is_star is not None:
         query = query.filter(Property.is_star == is_star)
 
-    # Melhoria N+1: Carrega mídias antecipadamente
-    query = query.options(joinedload(Property.media))
-    
     if sort == "price_asc":
         query = query.order_by(Property.price.asc())
     elif sort == "price_desc":
@@ -206,10 +203,11 @@ def get_properties(
         query = query.order_by(Property.views_count.desc(), Property.created_at.desc())
     else:
         query = query.order_by(Property.created_at.desc())
-    
+
+    # count() must run before joinedload — otherwise the JOIN inflates row count
     total = query.count()
     skip = (page - 1) * limit
-    items = query.offset(skip).limit(limit).all()
+    items = query.options(joinedload(Property.media)).offset(skip).limit(limit).all()
 
     return {"items": items, "total": total, "page": page, "limit": limit}
 

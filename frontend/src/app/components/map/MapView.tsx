@@ -46,39 +46,41 @@ interface ViewState {
   north: number;
   east: number;
   zoom: number;
+  lat: number;
+  lng: number;
 }
 
-function MapEventHandler({
-  onViewChange,
-}: {
-  onViewChange: (v: ViewState) => void;
-}) {
+function MapEventHandler({ onViewChange }: { onViewChange: (v: ViewState) => void }) {
   const map = useMapEvents({
     moveend() {
       const b = map.getBounds();
-      onViewChange({
-        south: b.getSouth(),
-        west: b.getWest(),
-        north: b.getNorth(),
-        east: b.getEast(),
-        zoom: map.getZoom(),
-      });
+      const c = map.getCenter();
+      onViewChange({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom(), lat: c.lat, lng: c.lng });
     },
     zoomend() {
       const b = map.getBounds();
-      onViewChange({
-        south: b.getSouth(),
-        west: b.getWest(),
-        north: b.getNorth(),
-        east: b.getEast(),
-        zoom: map.getZoom(),
-      });
+      const c = map.getCenter();
+      onViewChange({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast(), zoom: map.getZoom(), lat: c.lat, lng: c.lng });
     },
   });
   return null;
 }
 
-export default function MapView() {
+export interface MapViewProps {
+  initialCenter?: [number, number];
+  initialZoom?: number;
+  highlightedId?: number | null;
+  onMarkerClick?: (id: number) => void;
+  onMapMove?: (lat: number, lng: number, zoom: number) => void;
+}
+
+export default function MapView({
+  initialCenter = SAO_PAULO,
+  initialZoom = 12,
+  highlightedId,
+  onMarkerClick,
+  onMapMove,
+}: MapViewProps) {
   const [viewState, setViewState] = useState<ViewState | null>(null);
   const debouncedView = useDebounce(viewState, DEBOUNCE_MS);
   const [properties, setProperties] = useState<PropertyMapItem[]>([]);
@@ -89,18 +91,20 @@ export default function MapView() {
     >
   >([]);
   const superclusterRef = useRef<Supercluster<MapPoint>>(new Supercluster({ radius: 60, maxZoom: 17 }));
+  const onMapMoveRef = useRef(onMapMove);
+  useEffect(() => { onMapMoveRef.current = onMapMove; });
 
   useEffect(() => {
     if (!debouncedView) return;
-    const { south, west, north, east } = debouncedView;
+    const { south, west, north, east, lat, lng, zoom } = debouncedView;
     const bbox = `${south},${west},${north},${east}`;
     fetch(apiUrl(`/api/v1/properties/map?bbox=${bbox}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((data: PropertyMapItem[]) => {
-        const valid = data.filter((p) => p.lat != null && p.lng != null);
-        setProperties(valid);
+        setProperties(data.filter((p) => p.lat != null && p.lng != null));
       })
       .catch(() => {});
+    onMapMoveRef.current?.(lat, lng, zoom);
   }, [debouncedView]);
 
   useEffect(() => {
@@ -112,32 +116,16 @@ export default function MapView() {
       properties: { propertyId: p.id, item: p },
     }));
     index.load(points);
-    const bbox: BBox = [
-      debouncedView.west,
-      debouncedView.south,
-      debouncedView.east,
-      debouncedView.north,
-    ];
+    const bbox: BBox = [debouncedView.west, debouncedView.south, debouncedView.east, debouncedView.north];
     const rawClusters = index.getClusters(bbox, debouncedView.zoom);
     setClusters(
       rawClusters.map((c) => {
         const [lng, lat] = c.geometry.coordinates;
         const props = c.properties as (MapPoint & { cluster?: boolean; point_count?: number; cluster_id?: number });
         if (props.cluster) {
-          return {
-            type: "cluster" as const,
-            lat,
-            lng,
-            count: props.point_count ?? 0,
-            expansionZoom: index.getClusterExpansionZoom(props.cluster_id!),
-            key: `cluster-${props.cluster_id}`,
-          };
+          return { type: "cluster" as const, lat, lng, count: props.point_count ?? 0, expansionZoom: index.getClusterExpansionZoom(props.cluster_id!), key: `cluster-${props.cluster_id}` };
         }
-        return {
-          type: "point" as const,
-          item: props.item,
-          key: `point-${props.propertyId}`,
-        };
+        return { type: "point" as const, item: props.item, key: `point-${props.propertyId}` };
       })
     );
   }, [properties, debouncedView]);
@@ -146,8 +134,8 @@ export default function MapView() {
 
   return (
     <MapContainer
-      center={SAO_PAULO}
-      zoom={12}
+      center={initialCenter}
+      zoom={initialZoom}
       style={{ height: "100%", width: "100%" }}
       className="z-0"
     >
@@ -158,15 +146,9 @@ export default function MapView() {
       <MapEventHandler onViewChange={handleViewChange} />
       {clusters.map((c) =>
         c.type === "cluster" ? (
-          <MarkerCluster
-            key={c.key}
-            lat={c.lat}
-            lng={c.lng}
-            count={c.count}
-            expansionZoom={c.expansionZoom}
-          />
+          <MarkerCluster key={c.key} lat={c.lat} lng={c.lng} count={c.count} expansionZoom={c.expansionZoom} />
         ) : (
-          <PropertyMarker key={c.key} item={c.item} />
+          <PropertyMarker key={c.key} item={c.item} isHighlighted={c.item.id === highlightedId} onMarkerClick={onMarkerClick} />
         )
       )}
     </MapContainer>

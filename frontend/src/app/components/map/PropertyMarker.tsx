@@ -31,17 +31,19 @@ const propertyIcon = L.divIcon({
   iconAnchor: [20, 16],
 });
 
-function makePriceIcon(price: number) {
+function makePriceIcon(price: number, highlighted = false) {
   const label = new Intl.NumberFormat("pt-BR", {
     notation: "compact",
     maximumFractionDigits: 0,
     style: "currency",
     currency: "BRL",
   }).format(price);
+  const bg = highlighted ? "#f59e0b" : "#2563eb";
+  const scale = highlighted ? "transform:scale(1.18);transform-origin:center bottom;" : "";
   return L.divIcon({
     className: "",
     html: `<div style="
-      background:#2563eb;
+      background:${bg};
       color:#fff;
       font-size:11px;
       font-weight:800;
@@ -50,6 +52,7 @@ function makePriceIcon(price: number) {
       white-space:nowrap;
       box-shadow:0 2px 8px rgba(0,0,0,0.25);
       border:2px solid #fff;
+      ${scale}
     ">${label}</div>`,
     iconAnchor: [28, 16],
   });
@@ -63,11 +66,21 @@ function formatBRL(value: number) {
   }).format(value);
 }
 
-export default function PropertyMarker({ item }: { item: PropertyMapItem }) {
-  const icon = makePriceIcon(item.price);
+interface PropertyMarkerProps {
+  item: PropertyMapItem;
+  isHighlighted?: boolean;
+  onMarkerClick?: (id: number) => void;
+}
+
+export default function PropertyMarker({ item, isHighlighted = false, onMarkerClick }: PropertyMarkerProps) {
+  const icon = makePriceIcon(item.price, isHighlighted);
 
   return (
-    <Marker position={[item.lat, item.lng]} icon={icon}>
+    <Marker
+      position={[item.lat, item.lng]}
+      icon={icon}
+      eventHandlers={{ click: () => onMarkerClick?.(item.id) }}
+    >
       <Popup>
         <div className="w-44">
           {item.thumbnail_url ? (

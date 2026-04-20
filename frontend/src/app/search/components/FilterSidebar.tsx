@@ -11,9 +11,11 @@ interface FilterSidebarProps {
   locations: Record<string, string[]>;
   isMobileOpen: boolean;
   setIsMobileOpen: (val: boolean) => void;
+  basePath?: string;
+  additionalParams?: Record<string, string>;
 }
 
-export default function FilterSidebar({ initialParams, locations, isMobileOpen, setIsMobileOpen }: FilterSidebarProps) {
+export default function FilterSidebar({ initialParams, locations, isMobileOpen, setIsMobileOpen, basePath = "/search", additionalParams }: FilterSidebarProps) {
   const router = useRouter();
 
   // Local copy of params to allow users to play with inputs before applying
@@ -73,13 +75,17 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
        query.set('page', '1');
     }
 
-    router.push(`/search?${query.toString()}`);
-    setIsMobileOpen(false); // Close mobile drawer if open
+    if (additionalParams) {
+      Object.entries(additionalParams).forEach(([k, v]) => query.set(k, v));
+    }
+
+    router.push(`${basePath}?${query.toString()}`);
+    setIsMobileOpen(false);
   };
 
   const handleClear = () => {
     setParams({});
-    router.push("/search");
+    router.push(basePath);
     setIsMobileOpen(false);
   };
 

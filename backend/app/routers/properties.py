@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, BackgroundTasks, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Body
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -6,7 +6,7 @@ from app.db.database import get_db
 from app.models.user import User
 from app.schemas.property import (
     PropertyCreate, PropertyResponse, PaginatedPropertiesResponse,
-    AvailabilityCreate, AvailabilityResponse,
+    AvailabilityCreate, AvailabilityResponse, PropertyMapItem,
 )
 from app.services import property_service
 from .auth import get_current_user, get_current_agency, get_current_full_access, get_current_admin
@@ -67,6 +67,40 @@ def get_my_stats(
     current_user: User = Depends(get_current_user),
 ):
     return property_service.get_property_stats(db, current_user)
+
+
+@router.get("/map", response_model=List[PropertyMapItem])
+def get_map_properties(
+    bbox: str = Query(..., description="south,west,north,east (decimais)"),
+    price_min: float | None = Query(None),
+    price_max: float | None = Query(None),
+    type: str | None = Query(None),
+    bedrooms: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    parts = bbox.split(",")
+    if len(parts) != 4:
+        raise HTTPException(status_code=422, detail="bbox deve ter exatamente 4 valores: south,west,north,east")
+    try:
+        south, west, north, east = [float(p.strip()) for p in parts]
+    except ValueError:
+        raise HTTPException(status_code=422, detail="bbox deve conter valores numéricos")
+
+    if not (-90 <= south <= 90 and -90 <= north <= 90):
+        raise HTTPException(status_code=422, detail="Latitude deve estar entre -90 e 90")
+    if not (-180 <= west <= 180 and -180 <= east <= 180):
+        raise HTTPException(status_code=422, detail="Longitude deve estar entre -180 e 180")
+    if south >= north:
+        raise HTTPException(status_code=422, detail="south deve ser menor que north")
+
+    return property_service.get_map_properties(
+        db=db,
+        south=south, west=west, north=north, east=east,
+        price_min=price_min,
+        price_max=price_max,
+        property_type=type,
+        bedrooms=bedrooms,
+    )
 
 
 @router.get("/{property_id}", response_model=PropertyResponse)

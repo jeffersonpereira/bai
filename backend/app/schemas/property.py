@@ -92,3 +92,13 @@ class PaginatedPropertiesResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class PropertyMapItem(BaseModel):
+    id: int
+    lat: float | None = None
+    lng: float | None = None
+    price: float
+    type: str | None = None
+    thumbnail_url: str | None = None
+    slug: str | None = None

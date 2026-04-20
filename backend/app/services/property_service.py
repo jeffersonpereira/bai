@@ -1,5 +1,8 @@
+import hashlib
+import re
 import time as time_module
-from sqlalchemy import or_
+import unicodedata
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException
 from typing import List
@@ -10,10 +13,106 @@ from app.models.assignment import PropertyAssignment
 from app.models.media import PropertyMedia
 from app.models.availability import PropertyAvailability
 from app.schemas.property import PropertyCreate, PaginatedPropertiesResponse
+from app.core.config import settings
 
 # Cache simples para localização — válido para single-worker dev
 _LOCATIONS_CACHE: dict = {"data": None, "expiry": 0}
 _CACHE_TTL = 300  # 5 minutos
+
+_MAP_CACHE: dict = {}
+_MAP_CACHE_TTL = 30  # 30 segundos
+
+
+def _make_slug(title: str, prop_id: int) -> str:
+    normalized = unicodedata.normalize("NFD", title)
+    ascii_str = "".join(c for c in normalized if unicodedata.category(c) != "Mn")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_str.lower()).strip("-")
+    return f"{slug}-{prop_id}"
+
+
+def get_map_properties(
+    db: Session,
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+    price_min: float | None = None,
+    price_max: float | None = None,
+    property_type: str | None = None,
+    bedrooms: int | None = None,
+) -> list[dict]:
+    cache_key = hashlib.md5(
+        f"{south}:{west}:{north}:{east}:{price_min}:{price_max}:{property_type}:{bedrooms}".encode()
+    ).hexdigest()
+
+    now = time_module.time()
+    cached = _MAP_CACHE.get(cache_key)
+    if cached and now < cached["expiry"]:
+        return cached["data"]
+
+    is_postgres = settings.DATABASE_URL.startswith(("postgresql", "postgres"))
+
+    if is_postgres:
+        parts = ["status = 'active'", "location IS NOT NULL",
+                 "location && ST_MakeEnvelope(:west, :south, :east, :north, 4326)"]
+        params: dict = {"south": south, "west": west, "north": north, "east": east}
+        if price_min is not None:
+            parts.append("price >= :price_min")
+            params["price_min"] = price_min
+        if price_max is not None:
+            parts.append("price <= :price_max")
+            params["price_max"] = price_max
+        if property_type:
+            parts.append("property_type = :property_type")
+            params["property_type"] = property_type
+        if bedrooms is not None:
+            parts.append("bedrooms >= :bedrooms")
+            params["bedrooms"] = bedrooms
+
+        sql = text(
+            "SELECT id, lat, lng, price, property_type, image_url, title "
+            f"FROM properties WHERE {' AND '.join(parts)} LIMIT 500"
+        )
+        rows = db.execute(sql, params).fetchall()
+    else:
+        # SQLite fallback: lat/lng bounding box via BTREE columns
+        query = db.query(
+            Property.id, Property.lat, Property.lng, Property.price,
+            Property.property_type, Property.image_url, Property.title,
+        ).filter(
+            Property.status == "active",
+            Property.lat.isnot(None),
+            Property.lng.isnot(None),
+            Property.lat >= south,
+            Property.lat <= north,
+            Property.lng >= west,
+            Property.lng <= east,
+        )
+        if price_min is not None:
+            query = query.filter(Property.price >= price_min)
+        if price_max is not None:
+            query = query.filter(Property.price <= price_max)
+        if property_type:
+            query = query.filter(Property.property_type == property_type)
+        if bedrooms is not None:
+            query = query.filter(Property.bedrooms >= bedrooms)
+        rows = query.limit(500).all()
+
+    result = [
+        {
+            "id": row.id,
+            "lat": float(row.lat) if row.lat is not None else None,
+            "lng": float(row.lng) if row.lng is not None else None,
+            "price": row.price,
+            "type": row.property_type,
+            "thumbnail_url": row.image_url,
+            "slug": _make_slug(row.title, row.id),
+        }
+        for row in rows
+    ]
+
+    _MAP_CACHE[cache_key] = {"data": result, "expiry": now + _MAP_CACHE_TTL}
+    return result
 
 
 def get_locations(db: Session) -> dict:

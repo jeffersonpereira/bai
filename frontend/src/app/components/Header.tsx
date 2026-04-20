@@ -256,6 +256,7 @@ export default function Header() {
                           <MenuLink href="/dashboard/agency" icon={Icons.chart}    onClick={closeAll}>Central de Comando</MenuLink>
                           <MenuLink href="/dashboard"        icon={Icons.home}     onClick={closeAll}>Meus Imóveis</MenuLink>
                           <MenuLink href="/dashboard/crm"    icon={Icons.users}    onClick={closeAll}>CRM e Leads</MenuLink>
+                          <MenuLink href="/documents"        icon={Icons.settings} onClick={closeAll}>Documentos</MenuLink>
                         </>
                       )}
 
@@ -356,6 +357,7 @@ export default function Header() {
                       <MobileLink href="/dashboard/agency" onClick={closeAll}>Central de Comando</MobileLink>
                       <MobileLink href="/dashboard"        onClick={closeAll}>Meus Imóveis</MobileLink>
                       <MobileLink href="/dashboard/crm"    onClick={closeAll}>CRM e Leads</MobileLink>
+                      <MobileLink href="/documents"        onClick={closeAll}>Documentos</MobileLink>
                     </>
                   )}
                 </>

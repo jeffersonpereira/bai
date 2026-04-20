@@ -48,15 +48,15 @@ export default function BuscaSplitWrapper({ initialParams, locations, initialPro
   return (
     <div className="flex flex-col" style={{ height: "calc(100dvh - 72px)" }}>
       {/* Top Bar */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 bg-white border-b border-slate-100 shrink-0">
         <button
           onClick={() => setIsMobileOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-100 transition"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-100 transition shrink-0"
         >
           <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 0H4.5m4.5 12h9.75M10.5 18a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 0H4.5m4.5-6h9.75M8.25 12a1.5 1.5 0 01-3 0 1.5 1.5 0 013 0zm0 0H4.5" />
           </svg>
-          Filtros
+          <span className="hidden xs:inline">Filtros</span>
           {filterCount > 0 && (
             <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">
               {filterCount}
@@ -64,21 +64,23 @@ export default function BuscaSplitWrapper({ initialParams, locations, initialPro
           )}
         </button>
 
-        <span className="text-sm text-slate-400 hidden sm:block">
-          {total} {total === 1 ? "imóvel" : "imóveis"}
-        </span>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-slate-700">
+            {total} <span className="text-slate-400 font-normal">{total === 1 ? "imóvel" : "imóveis"}</span>
+          </span>
+        </div>
 
         {/* Mobile List/Map toggle */}
-        <div className="md:hidden ml-auto flex gap-1 bg-slate-100 p-1 rounded-xl">
+        <div className="md:hidden flex gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
           <button
             onClick={() => setActiveView("list")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeView === "list" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeView === "list" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
           >
             Lista
           </button>
           <button
             onClick={() => setActiveView("map")}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeView === "map" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeView === "map" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
           >
             Mapa
           </button>
@@ -91,12 +93,16 @@ export default function BuscaSplitWrapper({ initialParams, locations, initialPro
         <div
           className={`w-full md:w-2/5 overflow-y-auto bg-slate-50 ${activeView === "map" ? "hidden md:block" : "block"}`}
         >
-          <div className="p-4 space-y-3">
+          <div className="p-3 md:p-4 space-y-3">
             {initialProperties.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <span className="text-4xl mb-4">🔍</span>
-                <p className="font-bold text-slate-700">Nenhum imóvel encontrado</p>
-                <p className="text-sm text-slate-400 mt-1">Ajuste os filtros ou mova o mapa</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                </div>
+                <p className="font-bold text-slate-700 text-base">Nenhum imóvel encontrado</p>
+                <p className="text-sm text-slate-400 mt-1.5 max-w-xs">Tente ajustar os filtros ou explorar uma área diferente no mapa</p>
               </div>
             ) : (
               initialProperties.map((imovel: any) => (
@@ -105,7 +111,7 @@ export default function BuscaSplitWrapper({ initialParams, locations, initialPro
                   id={`property-card-${imovel.id}`}
                   onMouseEnter={() => setHighlightedId(imovel.id)}
                   onMouseLeave={() => setHighlightedId(null)}
-                  className={`rounded-3xl transition-all ${highlightedId === imovel.id ? "ring-2 ring-blue-500 ring-offset-2" : ""}`}
+                  className={`rounded-3xl transition-all duration-200 ${highlightedId === imovel.id ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : ""}`}
                 >
                   <PropertyCard imovel={imovel} imageHeight="h-40" />
                 </div>

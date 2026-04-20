@@ -117,38 +117,51 @@ export default async function Home() {
           {/* Barra de busca unificada */}
           <div className="w-full max-w-3xl mt-4">
             <form
-              action="/search"
+              action="/busca"
               role="search"
               aria-label="Buscar imóveis"
-              className="flex flex-col sm:flex-row gap-3 bg-white/10 border border-white/20 rounded-2xl p-3 backdrop-blur-xl shadow-2xl"
+              className="bg-white/10 border border-white/20 rounded-2xl p-2.5 backdrop-blur-xl shadow-2xl"
             >
-              <input
-                type="text"
-                name="city"
-                placeholder="Ex: São Paulo"
-                aria-label="Cidade"
-                className="flex-1 px-5 py-4 rounded-xl bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-400 font-medium text-base"
-              />
-              <input
-                type="text"
-                name="neighborhood"
-                placeholder="Bairro (opcional)"
-                aria-label="Bairro"
-                className="flex-1 px-5 py-4 rounded-xl bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-400 font-medium text-base"
-              />
-              <button
-                type="submit"
-                className="px-8 h-[56px] bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 transition-all hover:scale-[1.02] active:scale-95 whitespace-nowrap text-base min-w-[140px]"
-              >
-                Buscar Agora
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    name="city"
+                    placeholder="Cidade — ex: São Paulo"
+                    aria-label="Cidade"
+                    className="w-full pl-10 pr-4 py-4 rounded-xl bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-400 font-medium text-sm"
+                  />
+                </div>
+                <div className="relative flex-1">
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                  </svg>
+                  <input
+                    type="text"
+                    name="neighborhood"
+                    placeholder="Bairro (opcional)"
+                    aria-label="Bairro"
+                    className="w-full pl-10 pr-4 py-4 rounded-xl bg-white text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 transition placeholder:text-slate-400 font-medium text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="sm:w-auto w-full px-7 py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold rounded-xl shadow-lg shadow-blue-900/30 transition-all text-sm whitespace-nowrap"
+                >
+                  Buscar Agora
+                </button>
+              </div>
             </form>
-            
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-6 text-sm text-slate-300 font-medium">
+
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-5 text-xs text-slate-300 font-medium">
               <span className="flex items-center gap-1.5"><Icons.Check /> Sem anúncios falsos</span>
               <span className="flex items-center gap-1.5"><Icons.Check /> Contato direto</span>
-              <span className="flex items-center gap-1.5"><Icons.Check /> Dados 100% verificados</span>
-              <span className="flex items-center gap-1.5 text-emerald-400"><Icons.WhatsApp /> Contato via WhatsApp instantâneo</span>
+              <span className="flex items-center gap-1.5"><Icons.Check /> Dados verificados</span>
+              <span className="flex items-center gap-1.5 text-emerald-400"><Icons.WhatsApp /> WhatsApp instantâneo</span>
             </div>
           </div>
         </div>
@@ -158,18 +171,18 @@ export default async function Home() {
       <section className="bg-white py-20 border-b border-slate-100" aria-labelledby="social-proof-title">
         <div className="container mx-auto px-4 max-w-7xl">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-6 md:gap-12 text-center mb-16">
-            <div>
-              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">5.000+</p>
-              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Imóveis cadastrados</p>
+          <div className="grid grid-cols-3 gap-4 md:gap-12 text-center mb-16">
+            <div className="bg-blue-50/60 rounded-2xl py-6 px-2 md:bg-transparent md:py-0 md:px-0">
+              <p className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-blue-600 leading-none">5.000+</p>
+              <p className="text-slate-500 mt-2 text-xs sm:text-sm md:text-base font-medium">Imóveis cadastrados</p>
             </div>
-            <div>
-              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">1.200+</p>
-              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Corretores verificados</p>
+            <div className="bg-blue-50/60 rounded-2xl py-6 px-2 md:bg-transparent md:py-0 md:px-0">
+              <p className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-blue-600 leading-none">1.200+</p>
+              <p className="text-slate-500 mt-2 text-xs sm:text-sm md:text-base font-medium">Corretores verificados</p>
             </div>
-            <div>
-              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">R$ 2bi+</p>
-              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Em negócios realizados</p>
+            <div className="bg-blue-50/60 rounded-2xl py-6 px-2 md:bg-transparent md:py-0 md:px-0">
+              <p className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-blue-600 leading-none">R$&nbsp;2bi+</p>
+              <p className="text-slate-500 mt-2 text-xs sm:text-sm md:text-base font-medium">Em negócios realizados</p>
             </div>
           </div>
 

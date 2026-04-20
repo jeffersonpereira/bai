@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session, joinedload
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta
 import jwt
 from app.db.database import get_db
@@ -13,15 +13,14 @@ from .auth import get_current_user, oauth2_scheme
 from app.core.config import settings
 
 class PropertyBriefResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     city: str | None
     neighborhood: str | None
     price: float
     image_url: str | None
-
-    class Config:
-        from_attributes = True
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login", auto_error=False)
@@ -34,6 +33,8 @@ class AppointmentCreate(BaseModel):
     notes: str | None = None
 
 class AppointmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     property_id: int
     broker_id: int | None # Opcional na criação, o sistema atribui
@@ -47,9 +48,6 @@ class AppointmentResponse(BaseModel):
     buyer_id: int | None
     feedback_visita: str | None = None
     property: PropertyBriefResponse | None = None
-    
-    class Config:
-        from_attributes = True
 
 async def get_optional_current_user(db: Session = Depends(get_db), token: str | None = Depends(oauth2_scheme_optional)):
     if not token:

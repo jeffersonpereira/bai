@@ -173,11 +173,11 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Mínimo</label>
-                  <CurrencyInput name="min_price" value={params.min_price || ""} onChange={(val) => handleCustomChange('min_price', val)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
+                  <CurrencyInput name="min_price" value={String(params.min_price ?? "")} onChange={(val) => handleCustomChange('min_price', val)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
                 </div>
                 <div>
                   <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Máximo</label>
-                  <CurrencyInput name="max_price" value={params.max_price || ""} onChange={(val) => handleCustomChange('max_price', val)} placeholder="Ilimitado" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
+                  <CurrencyInput name="max_price" value={String(params.max_price ?? "")} onChange={(val) => handleCustomChange('max_price', val)} placeholder="Ilimitado" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
                 </div>
               </div>
             </fieldset>
@@ -247,11 +247,11 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Área Mín. (m²)</label>
-                  <NumberMaskInput name="min_area" value={params.min_area || ""} onChange={(val) => handleCustomChange('min_area', val)} suffix=" m²" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-slate-900" />
+                  <NumberMaskInput name="min_area" value={String(params.min_area ?? "")} onChange={(val) => handleCustomChange('min_area', val)} suffix=" m²" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-slate-900" />
                 </div>
                 <div>
                   <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Área Máx. (m²)</label>
-                  <NumberMaskInput name="max_area" value={params.max_area || ""} onChange={(val) => handleCustomChange('max_area', val)} placeholder="Ilimitado" suffix=" m²" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-slate-900" />
+                  <NumberMaskInput name="max_area" value={String(params.max_area ?? "")} onChange={(val) => handleCustomChange('max_area', val)} placeholder="Ilimitado" suffix=" m²" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition font-medium text-slate-900" />
                 </div>
               </div>
             </fieldset>

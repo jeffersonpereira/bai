@@ -6,7 +6,7 @@ from app.models.favorite import Favorite
 from app.models.property import Property
 from app.models.user import User
 from .auth import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from .properties import PropertyResponse
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
@@ -15,12 +15,11 @@ class FavoriteCreate(BaseModel):
     property_id: int
 
 class FavoriteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     property_id: int
     property: PropertyResponse
-
-    class Config:
-        from_attributes = True
 
 @router.get("/", response_model=List[FavoriteResponse])
 def get_favorites(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

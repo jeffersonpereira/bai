@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.property import Property
 from app.models.lead import Lead
 from .auth import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -15,6 +15,8 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 # --- SCHEMAS ---
 
 class UserAdminResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     name: str | None = None
@@ -25,9 +27,6 @@ class UserAdminResponse(BaseModel):
     broker_count: int | None = 0 # Para agências
     plan_type: str | None = None
     plan_expires_at: datetime | None = None
-
-    class Config:
-        from_attributes = True
 
 class UserAdminUpdate(BaseModel):
     name: str | None = None
@@ -136,6 +135,8 @@ class PropertyAdminOwnerResponse(BaseModel):
     role: str
 
 class PropertyAdminResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     price: float
@@ -145,9 +146,6 @@ class PropertyAdminResponse(BaseModel):
     image_url: str | None = None
     owner: PropertyAdminOwnerResponse | None = None
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 class PropertyAdminListResponse(BaseModel):
     items: List[PropertyAdminResponse]

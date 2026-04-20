@@ -109,19 +109,19 @@ export default function RootLayout({
                       <p className="text-white font-semibold mb-1">Fique por dentro do mercado</p>
                       <p className="text-slate-400 text-sm">Receba tendências e oportunidades no seu e-mail.</p>
                     </div>
-                    <form className="flex gap-2 w-full md:w-auto" onSubmit={(e) => e.preventDefault()}>
+                    <div className="flex gap-2 w-full md:w-auto">
                       <input
                         type="email"
                         placeholder="seu@email.com"
                         className="flex-1 md:w-64 px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-sm placeholder:text-slate-500 outline-none focus:border-blue-500 transition-colors"
                       />
                       <button
-                        type="submit"
+                        type="button"
                         className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-lg transition-colors whitespace-nowrap"
                       >
                         Assinar
                       </button>
-                    </form>
+                    </div>
                   </div>
                 </div>
 

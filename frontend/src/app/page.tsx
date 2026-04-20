@@ -147,6 +147,92 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ── Prova Social ─────────────────────────────────────── */}
+      <section className="bg-white py-20 border-b border-slate-100" aria-labelledby="social-proof-title">
+        <div className="container mx-auto px-4 max-w-7xl">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-6 md:gap-12 text-center mb-16">
+            <div>
+              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">5.000+</p>
+              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Imóveis cadastrados</p>
+            </div>
+            <div>
+              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">1.200+</p>
+              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Corretores verificados</p>
+            </div>
+            <div>
+              <p className="text-4xl md:text-5xl font-extrabold text-blue-600">R$ 2bi+</p>
+              <p className="text-slate-500 mt-2 text-sm md:text-base font-medium">Em negócios realizados</p>
+            </div>
+          </div>
+
+          {/* Depoimentos */}
+          <div className="text-center mb-10">
+            <h2 id="social-proof-title" className="text-2xl md:text-3xl font-extrabold text-slate-900">
+              O que dizem quem já usou
+            </h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Comprador */}
+            <div className="bg-slate-50 rounded-2xl p-7 border border-slate-100 flex flex-col gap-4">
+              <div className="flex gap-1 text-amber-400">
+                {Array(5).fill(0).map((_, i) => (
+                  <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                ))}
+              </div>
+              <p className="text-slate-700 leading-relaxed text-sm italic">
+                "Encontrei meu apartamento em São Paulo em menos de uma semana. Os filtros são precisos e não tem anúncio duplicado como nos outros portais. Processo todo sem estresse."
+              </p>
+              <div className="mt-auto flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">RC</div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Rafael Costa</p>
+                  <p className="text-slate-400 text-xs">Comprador · São Paulo, SP</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Proprietário */}
+            <div className="bg-slate-50 rounded-2xl p-7 border border-slate-100 flex flex-col gap-4">
+              <div className="flex gap-1 text-amber-400">
+                {Array(5).fill(0).map((_, i) => (
+                  <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                ))}
+              </div>
+              <p className="text-slate-700 leading-relaxed text-sm italic">
+                "Anunciei minha casa e em dois dias já tinha três propostas sérias. A plataforma filtra curiosos — só chegam compradores com perfil real. Vendi 8% acima do que esperava."
+              </p>
+              <div className="mt-auto flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">AM</div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Ana Martins</p>
+                  <p className="text-slate-400 text-xs">Proprietária · Campinas, SP</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Corretor */}
+            <div className="bg-slate-50 rounded-2xl p-7 border border-slate-100 flex flex-col gap-4">
+              <div className="flex gap-1 text-amber-400">
+                {Array(5).fill(0).map((_, i) => (
+                  <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                ))}
+              </div>
+              <p className="text-slate-700 leading-relaxed text-sm italic">
+                "Como corretor independente, o CRM integrado mudou minha operação. Centralizo todos os leads, acompanho o funil e consigo atender três vezes mais clientes com a mesma equipe."
+              </p>
+              <div className="mt-auto flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-sm">LS</div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Lucas Souza</p>
+                  <p className="text-slate-400 text-xs">Corretor CRECI · Belo Horizonte, MG</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Segmentação de Públicos (A essência do Marketing) ─── */}
       <section className="bg-white py-24" aria-labelledby="personas-title">
         <div className="container mx-auto px-4">

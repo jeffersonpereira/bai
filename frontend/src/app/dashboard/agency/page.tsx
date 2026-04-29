@@ -28,7 +28,7 @@ export default function AgencyDashboard() {
         }
 
         const [propRes, leadRes, ownerRes] = await Promise.all([
-          fetch(`${API}/api/v1/properties/user/stats`, { headers: { "Authorization": `Bearer ${token}` } }),
+          fetch(`${API}/api/v1/imoveis/user/stats`, { headers: { "Authorization": `Bearer ${token}` } }),
           fetch(`${API}/api/v1/crm/leads`, { headers: { "Authorization": `Bearer ${token}` } }),
           fetch(`${API}/api/v1/crm/owners`, { headers: { "Authorization": `Bearer ${token}` } }),
         ]);
@@ -40,7 +40,7 @@ export default function AgencyDashboard() {
         let brokers: any[] = [];
         if (user.role === 'agency') {
           const [brokerRes, comissaoRes] = await Promise.all([
-            fetch(`${API}/api/v1/team/brokers`, { headers: { "Authorization": `Bearer ${token}` } }),
+            fetch(`${API}/api/v1/equipe/brokers`, { headers: { "Authorization": `Bearer ${token}` } }),
             fetch(`${API}/api/v1/comissoes/resumo`, { headers: { "Authorization": `Bearer ${token}` } }),
           ]);
           if (brokerRes.ok) brokers = await brokerRes.json();

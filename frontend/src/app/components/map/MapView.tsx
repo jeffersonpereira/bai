@@ -9,7 +9,7 @@ import { MapContainer, TileLayer, useMapEvents } from "react-leaflet";
 import Supercluster from "supercluster";
 import type { BBox } from "geojson";
 import type { PointFeature } from "supercluster";
-import PropertyMarker from "./PropertyMarker";
+import MarcadorImovel from "./MarcadorImovel";
 import MarkerCluster from "./MarkerCluster";
 import { apiUrl } from "@/lib/api";
 
@@ -98,7 +98,7 @@ export default function MapView({
     if (!debouncedView) return;
     const { south, west, north, east, lat, lng, zoom } = debouncedView;
     const bbox = `${south},${west},${north},${east}`;
-    fetch(apiUrl(`/api/v1/properties/map?bbox=${bbox}`))
+    fetch(apiUrl(`/api/v1/imoveis/map?bbox=${bbox}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((data: PropertyMapItem[]) => {
         setProperties(data.filter((p) => p.lat != null && p.lng != null));
@@ -148,7 +148,7 @@ export default function MapView({
         c.type === "cluster" ? (
           <MarkerCluster key={c.key} lat={c.lat} lng={c.lng} count={c.count} expansionZoom={c.expansionZoom} />
         ) : (
-          <PropertyMarker key={c.key} item={c.item} isHighlighted={c.item.id === highlightedId} onMarkerClick={onMarkerClick} />
+          <MarcadorImovel key={c.key} item={c.item} isHighlighted={c.item.id === highlightedId} onMarkerClick={onMarkerClick} />
         )
       )}
     </MapContainer>

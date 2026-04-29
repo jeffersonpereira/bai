@@ -14,7 +14,7 @@ export default function TeamManagement() {
   const fetchBrokers = async () => {
     const token = localStorage.getItem("bai_token");
     try {
-      const res = await fetch(`${API}/api/v1/team/brokers`, {
+      const res = await fetch(`${API}/api/v1/equipe/brokers`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
@@ -36,7 +36,7 @@ export default function TeamManagement() {
     setError("");
     const token = localStorage.getItem("bai_token");
     try {
-      const res = await fetch(`${API}/api/v1/team/brokers`, {
+      const res = await fetch(`${API}/api/v1/equipe/brokers`, {
         method: "POST",
         headers: { 
           "Authorization": `Bearer ${token}`,

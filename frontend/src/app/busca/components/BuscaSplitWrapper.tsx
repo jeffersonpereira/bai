@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import FilterSidebar from "@/app/search/components/FilterSidebar";
-import PropertyCard from "@/app/components/PropertyCard";
+import CardImovel from "@/app/components/CardImovel";
 import MapViewDynamic from "@/app/components/map/MapViewDynamic";
 
 interface BuscaSplitWrapperProps {
@@ -113,7 +113,7 @@ export default function BuscaSplitWrapper({ initialParams, locations, initialPro
                   onMouseLeave={() => setHighlightedId(null)}
                   className={`rounded-3xl transition-all duration-200 ${highlightedId === imovel.id ? "ring-2 ring-blue-500 ring-offset-2 shadow-md" : ""}`}
                 >
-                  <PropertyCard imovel={imovel} imageHeight="h-40" />
+                  <CardImovel imovel={imovel} imageHeight="h-40" />
                 </div>
               ))
             )}

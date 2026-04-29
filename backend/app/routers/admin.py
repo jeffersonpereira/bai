@@ -1,151 +1,45 @@
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List
-from app.db.database import get_db
-from app.models.user import User
-from app.models.property import Property
-from app.models.lead import Lead
-from .auth import get_current_user
 from pydantic import BaseModel, ConfigDict
-from datetime import datetime
+
+from app.db.database import get_db
+from app.models.usuario import Usuario
+from app.models.imovel import Imovel
+from app.models.lead import Lead
+from app.core.deps import get_current_admin
+from app.schemas.usuario import UserAdminResponse, UserAdminUpdate
+from app.schemas.admin import AdminStats
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# --- SCHEMAS ---
-
-class UserAdminResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    email: str
-    name: str | None = None
-    role: str
-    creci: str | None = None
-    is_active: bool
-    created_at: datetime
-    broker_count: int | None = 0 # Para agências
-    plan_type: str | None = None
-    plan_expires_at: datetime | None = None
-
-class UserAdminUpdate(BaseModel):
-    name: str | None = None
-    role: str | None = None
-    creci: str | None = None
-    is_active: bool | None = None
-    plan_type: str | None = None
-    plan_expires_at: datetime | None = None
-
-class AdminStats(BaseModel):
-    total_users: int
-    total_agencies: int
-    total_brokers: int
-    total_properties: int
-    total_leads: int
-    recent_registrations: int
-    premium_users: int
-
-# --- MIDDLEWARE-LIKE DEPENDENCY ---
-
-def check_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Acesso negado. Apenas administradores.")
-    return current_user
-
-# --- ROUTES ---
-
-@router.get("/stats", response_model=AdminStats)
-def get_admin_stats(
-    db: Session = Depends(get_db),
-    admin: User = Depends(check_admin)
-):
-    from datetime import datetime, timedelta
-    one_week_ago = datetime.now() - timedelta(days=7)
-    
-    return {
-        "total_users": db.query(User).count(),
-        "total_agencies": db.query(User).filter(User.role == "agency").count(),
-        "total_brokers": db.query(User).filter(User.role == "broker").count(),
-        "total_properties": db.query(Property).count(),
-        "total_leads": db.query(Lead).count(),
-        "recent_registrations": db.query(User).filter(User.created_at >= one_week_ago).count(),
-        "premium_users": db.query(User).filter(User.plan_type.in_(["pro", "premium"])).count()
-    }
-
-@router.get("/users", response_model=List[UserAdminResponse])
-def list_users(
-    role: str | None = Query(None),
-    q: str | None = Query(None, description="Busca por nome ou email"),
-    db: Session = Depends(get_db),
-    admin: User = Depends(check_admin)
-):
-    query = db.query(User)
-    
-    if role:
-        query = query.filter(User.role == role)
-    if q:
-        query = query.filter(
-            (User.name.ilike(f"%{q}%")) | (User.email.ilike(f"%{q}%"))
-        )
-    
-    users = query.all()
-
-    # Contagem de corretores em query única (GROUP BY) ao invés de N queries
-    agency_ids = [u.id for u in users if u.role == "agency"]
-    broker_counts: dict[int, int] = {}
-    if agency_ids:
-        rows = (
-            db.query(User.parent_id, func.count(User.id))
-            .filter(User.parent_id.in_(agency_ids))
-            .group_by(User.parent_id)
-            .all()
-        )
-        broker_counts = {parent_id: count for parent_id, count in rows}
-
-    for user in users:
-        user.broker_count = broker_counts.get(user.id, 0)
-
-    return users
-
-@router.patch("/users/{user_id}", response_model=UserAdminResponse)
-def update_user_status(
-    user_id: int,
-    user_in: UserAdminUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(check_admin)
-):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
-    
-    update_data = user_in.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(db_user, key, value)
-    
-    db.commit()
-    db.refresh(db_user)
-    return db_user
 
 class PropertyAdminStatusUpdate(BaseModel):
-    status: str
+    situacao: str
 
-class PropertyAdminOwnerResponse(BaseModel):
-    name: str | None = None
-    role: str
 
-class PropertyAdminResponse(BaseModel):
+class PropertyAdminCorretorBrief(BaseModel):
+    nome: str | None = None
+    perfil: str
+
     model_config = ConfigDict(from_attributes=True)
 
+
+class PropertyAdminResponse(BaseModel):
     id: int
-    title: str
-    price: float
-    city: str | None = None
-    listing_type: str | None = None
-    status: str
-    image_url: str | None = None
-    owner: PropertyAdminOwnerResponse | None = None
-    created_at: datetime
+    titulo: str
+    preco: float
+    cidade: str | None = None
+    tipo_oferta: str | None = None
+    situacao: str
+    url_imagem: str | None = None
+    corretor: PropertyAdminCorretorBrief | None = None
+    criado_em: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 class PropertyAdminListResponse(BaseModel):
     items: List[PropertyAdminResponse]
@@ -153,45 +47,157 @@ class PropertyAdminListResponse(BaseModel):
     page: int
     limit: int
 
+
+@router.get("/stats", response_model=AdminStats)
+def get_admin_stats(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_admin),
+):
+    one_week_ago = datetime.now() - timedelta(days=7)
+    return {
+        "total_users": db.query(Usuario).count(),
+        "total_agencies": db.query(Usuario).filter(Usuario.perfil == "imobiliaria").count(),
+        "total_brokers": db.query(Usuario).filter(Usuario.perfil == "corretor").count(),
+        "total_properties": db.query(Imovel).count(),
+        "total_leads": db.query(Lead).count(),
+        "recent_registrations": db.query(Usuario).filter(Usuario.criado_em >= one_week_ago).count(),
+        "premium_users": db.query(Usuario).filter(Usuario.tipo_plano.in_(["pro", "premium"])).count(),
+    }
+
+
+class UserAdminListResponse(BaseModel):
+    items: List[UserAdminResponse]
+    total: int
+    page: int
+    limit: int
+
+
+@router.get("/users", response_model=UserAdminListResponse)
+def list_users(
+    perfil: str | None = Query(None),
+    tipo_plano: str | None = Query(None),
+    q: str | None = Query(None, description="Busca por nome ou email"),
+    ativo: bool | None = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_admin),
+):
+    query = db.query(Usuario)
+    if perfil:
+        query = query.filter(Usuario.perfil == perfil)
+    if tipo_plano:
+        query = query.filter(Usuario.tipo_plano == tipo_plano)
+    if ativo is not None:
+        query = query.filter(Usuario.ativo == ativo)
+    if q:
+        query = query.filter(
+            (Usuario.nome.ilike(f"%{q}%")) | (Usuario.email.ilike(f"%{q}%"))
+        )
+
+    total = query.count()
+    users = query.order_by(Usuario.criado_em.desc()).offset((page - 1) * limit).limit(limit).all()
+
+    agency_ids = [u.id for u in users if u.perfil == "imobiliaria"]
+    broker_counts: dict[int, int] = {}
+    if agency_ids:
+        rows = (
+            db.query(Usuario.imobiliaria_id, func.count(Usuario.id))
+            .filter(Usuario.imobiliaria_id.in_(agency_ids))
+            .group_by(Usuario.imobiliaria_id)
+            .all()
+        )
+        broker_counts = {parent_id: count for parent_id, count in rows}
+
+    for user in users:
+        user.broker_count = broker_counts.get(user.id, 0)
+
+    return {"items": users, "total": total, "page": page, "limit": limit}
+
+
+@router.get("/plans/stats")
+def get_plan_stats(
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_admin),
+):
+    now = datetime.now()
+    soon = now + timedelta(days=7)
+    rows = (
+        db.query(Usuario.tipo_plano, func.count(Usuario.id))
+        .filter(Usuario.ativo == True)
+        .group_by(Usuario.tipo_plano)
+        .all()
+    )
+    by_plan = {plan or "gratuito": count for plan, count in rows}
+    expiring_soon = (
+        db.query(func.count(Usuario.id))
+        .filter(
+            Usuario.plano_expira_em != None,
+            Usuario.plano_expira_em >= now,
+            Usuario.plano_expira_em <= soon,
+            Usuario.ativo == True,
+        )
+        .scalar()
+    )
+    return {
+        "gratuito": by_plan.get("gratuito", 0),
+        "pro": by_plan.get("pro", 0),
+        "premium": by_plan.get("premium", 0),
+        "expirando_em_7_dias": expiring_soon,
+    }
+
+
+@router.patch("/users/{user_id}", response_model=UserAdminResponse)
+def update_user(
+    user_id: int,
+    user_in: UserAdminUpdate,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_admin),
+):
+    db_user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    for key, value in user_in.model_dump(exclude_unset=True).items():
+        setattr(db_user, key, value)
+
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
 @router.get("/properties", response_model=PropertyAdminListResponse)
 def list_all_properties(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    title: str | None = Query(None),
-    status: str | None = Query(None),
+    titulo: str | None = Query(None),
+    situacao: str | None = Query(None),
     db: Session = Depends(get_db),
-    admin: User = Depends(check_admin)
+    _: Usuario = Depends(get_current_admin),
 ):
-    query = db.query(Property)
-    
-    if title:
-        query = query.filter(Property.title.ilike(f"%{title}%"))
-    if status:
-        query = query.filter(Property.status == status)
-        
+    query = db.query(Imovel)
+    if titulo:
+        query = query.filter(Imovel.titulo.ilike(f"%{titulo}%"))
+    if situacao:
+        query = query.filter(Imovel.situacao == situacao)
+
     total = query.count()
-    items = query.order_by(Property.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
-    
-    # We return standard property data
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "limit": limit
-    }
+    items = query.order_by(Imovel.criado_em.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {"items": items, "total": total, "page": page, "limit": limit}
+
 
 @router.patch("/properties/{property_id}/status")
-def update_property_global_status(
+def update_property_status(
     property_id: int,
     status_update: PropertyAdminStatusUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(check_admin)
+    _: Usuario = Depends(get_current_admin),
 ):
-    prop = db.query(Property).filter(Property.id == property_id).first()
+    prop = db.query(Imovel).filter(Imovel.id == property_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Propriedade não encontrada")
-        
-    prop.status = status_update.status
+
+    prop.situacao = status_update.situacao
     db.commit()
     db.refresh(prop)
-    return {"message": f"Status atualizado para {prop.status}", "property": prop}
+    return {"message": f"Status atualizado para {prop.situacao}", "property": prop}

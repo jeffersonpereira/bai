@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/app/components/ui/Toast";
+import AddressFields, { AddressValue, emptyAddress, formatFullAddress } from "@/app/components/AddressFields";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
@@ -17,6 +18,7 @@ export default function OwnersPage() {
   const [formData, setFormData] = useState({
     name: "", email: "", phone: "", document: "", address: "", notes: ""
   });
+  const [ownerAddress, setOwnerAddress] = useState<AddressValue>(emptyAddress());
   const [properties, setProperties] = useState<any[]>([]);
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,7 +51,7 @@ export default function OwnersPage() {
         setTotal(data.total);
       }
 
-      const propRes = await fetch(`${API}/api/v1/properties/user/me`, {
+      const propRes = await fetch(`${API}/api/v1/imoveis/user/me`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (propRes.ok) setProperties(await propRes.json());
@@ -68,13 +70,13 @@ export default function OwnersPage() {
       ? `${API}/api/v1/crm/owners/${editingOwnerId}` 
       : `${API}/api/v1/crm/owners`;
 
-    // Preparar dados: converter strings vazias em null para evitar erro de validação (EmailStr)
+    const composedAddress = formatFullAddress(ownerAddress) || formData.address || null;
     const payload = {
       ...formData,
       email: formData.email || null,
       phone: formData.phone || null,
       document: formData.document || null,
-      address: formData.address || null,
+      address: composedAddress,
       notes: formData.notes || null
     };
 
@@ -92,6 +94,7 @@ export default function OwnersPage() {
         setEditMode(false);
         setEditingOwnerId(null);
         setFormData({ name: "", email: "", phone: "", document: "", address: "", notes: "" });
+        setOwnerAddress(emptyAddress());
         fetchOwners();
         success(editMode ? "Cadastro atualizado!" : "Proprietário cadastrado com sucesso!");
       } else {
@@ -113,6 +116,7 @@ export default function OwnersPage() {
       address: owner.address || "",
       notes: owner.notes || ""
     });
+    setOwnerAddress(emptyAddress());
     setEditingOwnerId(owner.id);
     setEditMode(true);
     setShowForm(true);
@@ -135,6 +139,7 @@ export default function OwnersPage() {
               setEditMode(false);
               setEditingOwnerId(null);
               setFormData({ name: "", email: "", phone: "", document: "", address: "", notes: "" });
+              setOwnerAddress(emptyAddress());
             } else {
               setShowForm(true);
             }
@@ -192,8 +197,17 @@ export default function OwnersPage() {
               </div>
             </div>
             <div>
+              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Endereço</label>
+              <AddressFields
+                value={ownerAddress}
+                onChange={setOwnerAddress}
+                inputCls="w-full bg-slate-50 border border-slate-100 px-5 py-3.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                labelCls="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2"
+              />
+            </div>
+            <div>
               <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Observações Internas</label>
-              <textarea 
+              <textarea
                 rows={3}
                 className="w-full bg-slate-50 border border-slate-100 px-5 py-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm"
                 value={formData.notes}
@@ -242,10 +256,10 @@ export default function OwnersPage() {
             <tbody className="divide-y divide-slate-50">
               {(owners || []).map((owner: any) => {
                 const ownerProperties = (properties || []).filter((p: any) => p.actual_owner_id === owner.id);
-                const totalAssets = ownerProperties.reduce((acc, curr) => acc + (curr.price || 0), 0);
+                const totalAssets = ownerProperties.reduce((acc, curr) => acc + (curr.preco || 0), 0);
                 const potentialCommission = ownerProperties.reduce((acc, curr) => {
-                  const pct = curr.commission_percentage || 0;
-                  return acc + (curr.price * (pct / 100));
+                  const pct = curr.percentual_comissao || 0;
+                  return acc + (curr.preco * (pct / 100));
                 }, 0);
 
                 return (
@@ -256,8 +270,8 @@ export default function OwnersPage() {
                           👤
                         </div>
                         <div>
-                          <div className="font-bold text-slate-900">{owner.name}</div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{owner.document || 'Sem Documento'}</div>
+                          <div className="font-bold text-slate-900">{owner.nome}</div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{owner.documento || 'Sem Documento'}</div>
                         </div>
                       </div>
                     </td>

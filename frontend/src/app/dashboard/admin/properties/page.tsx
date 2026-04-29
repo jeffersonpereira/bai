@@ -32,8 +32,8 @@ export default function AdminPropertiesPage() {
     try {
       let url = new URL(`${API}/api/v1/admin/properties`);
       url.searchParams.append("page", pagination.page.toString());
-      if (searchTitle) url.searchParams.append("title", searchTitle);
-      if (statusFilter) url.searchParams.append("status", statusFilter);
+      if (searchTitle) url.searchParams.append("titulo", searchTitle);
+      if (statusFilter) url.searchParams.append("situacao", statusFilter);
 
       const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${token}` }
@@ -63,10 +63,10 @@ export default function AdminPropertiesPage() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ situacao: newStatus })
       });
       if (res.ok) {
-        setProperties(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, situacao: newStatus } : p));
       } else {
         toastError("Falha ao atualizar o status do imóvel.");
       }
@@ -109,10 +109,10 @@ export default function AdminPropertiesPage() {
             onChange={e => setStatusFilter(e.target.value)}
           >
             <option value="">Todos</option>
-            <option value="active">Ativos</option>
-            <option value="pending">Pendentes</option>
-            <option value="archived">Arquivados (Takedown)</option>
-            <option value="sold">Vendidos</option>
+            <option value="ativo">Ativos</option>
+            <option value="pendente">Pendentes</option>
+            <option value="arquivado">Arquivados (Takedown)</option>
+            <option value="vendido">Vendidos</option>
           </select>
         </div>
         <button 
@@ -146,39 +146,39 @@ export default function AdminPropertiesPage() {
                   <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition">
                     <td className="p-5 align-middle">
                       <div className="w-12 h-12 rounded-xl bg-slate-200 overflow-hidden shrink-0 border border-slate-100">
-                         {p.image_url ? (
-                            <img src={p.image_url} alt="Thumb" className="w-full h-full object-cover" />
+                         {p.url_imagem ? (
+                            <img src={p.url_imagem} alt="Thumb" className="w-full h-full object-cover" />
                          ) : (
                             <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs font-bold">N/A</div>
                          )}
                       </div>
                     </td>
                     <td className="p-5 align-middle">
-                      <div className="font-bold text-slate-900 line-clamp-1" title={p.title}>{p.title}</div>
+                      <div className="font-bold text-slate-900 line-clamp-1" title={p.titulo}>{p.titulo}</div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${
-                          p.owner?.role === 'user' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                          p.corretor?.perfil === 'comprador' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                         }`}>
-                          {p.owner?.role === 'user' ? 'Autônomo' : p.owner?.role || 'Desconhecido'}
+                          {p.corretor?.perfil === 'comprador' ? 'Autônomo' : p.corretor?.perfil || 'Desconhecido'}
                         </span>
                         <span className="text-xs font-black text-slate-500">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.price)}
-                          <span className="ml-2 font-medium">| {p.city}</span>
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}
+                          <span className="ml-2 font-medium">| {p.cidade}</span>
                         </span>
                       </div>
                     </td>
                     <td className="p-5 align-middle">
                        <span className="px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-700">
-                         {p.listing_type}
+                         {p.tipo_oferta}
                        </span>
                     </td>
                     <td className="p-5 align-middle">
                        <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                         p.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 
-                         p.status === 'archived' ? 'bg-red-100 text-red-700 shadow-sm' :
+                         p.situacao === 'ativo' ? 'bg-emerald-100 text-emerald-700' :
+                         p.situacao === 'arquivado' ? 'bg-red-100 text-red-700 shadow-sm' :
                          'bg-slate-100 text-slate-600'
                        }`}>
-                         {p.status}
+                         {p.situacao}
                        </span>
                     </td>
                     <td className="p-5 text-right align-middle">
@@ -186,17 +186,17 @@ export default function AdminPropertiesPage() {
                         <Link href={`/properties/${p.id}`} target="_blank" className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 px-2 py-1 bg-white border border-slate-200 rounded-md transition shadow-sm">
                           Ver Anúncio
                         </Link>
-                        {p.status === 'active' ? (
-                          <button 
-                            onClick={() => updateStatus(p.id, 'archived')}
+                        {p.situacao === 'ativo' ? (
+                          <button
+                            onClick={() => updateStatus(p.id, 'arquivado')}
                             className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-white bg-red-50 hover:bg-red-600 px-3 py-1.5 rounded-lg transition shadow-sm"
                             title="Remover sumariamente do catálogo"
                           >
                             Suspender
                           </button>
                         ) : (
-                          <button 
-                            onClick={() => updateStatus(p.id, 'active')}
+                          <button
+                            onClick={() => updateStatus(p.id, 'ativo')}
                             className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-600 px-3 py-1.5 rounded-lg transition shadow-sm"
                             title="Reativar no catálogo"
                           >

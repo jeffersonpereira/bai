@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "@/app/components/ui/Toast";
 
@@ -9,6 +10,13 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 export default function DashboardPage() {
   const { success, error: toastError } = useToast();
   const { user, token } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'user') router.replace('/dashboard/buyer');
+    else if (user.role === 'admin') router.replace('/dashboard/admin');
+  }, [user, router]);
   
   // Estados de Dados
   const [properties, setProperties] = useState<any[]>([]);
@@ -36,19 +44,18 @@ export default function DashboardPage() {
     const initDashboard = async () => {
       try {
         if (user?.role === 'agency') {
-          const teamRes = await fetch(`${API}/api/v1/team/brokers`, { 
-            headers: { "Authorization": `Bearer ${token}` } 
+          const teamRes = await fetch(`${API}/api/v1/equipe/brokers`, {
+            headers: { "Authorization": `Bearer ${token}` }
           });
           if (teamRes.ok) setTeam(await teamRes.json());
         }
       } catch (err) {
         console.error("Erro ao carregar inicialização", err);
-      } finally {
-        setLoading(false);
       }
     };
 
-    initDashboard();
+    initDashboard().then(() => fetchMyProperties(1));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, user?.role]);
 
   const fetchMyProperties = async (page = 1) => {
@@ -56,7 +63,7 @@ export default function DashboardPage() {
     setHasSearched(true);
     setError("");
     try {
-      const url = new URL(`${API}/api/v1/properties/user/me`);
+      const url = new URL(`${API}/api/v1/imoveis/user/me`);
       url.searchParams.append("page", page.toString());
       if (filterTitle) url.searchParams.append("title", filterTitle);
       if (filterStatus) url.searchParams.append("status", filterStatus);
@@ -84,7 +91,7 @@ export default function DashboardPage() {
   const handleAssign = async () => {
     if (!selectedBroker || !assigningProperty) return;
     try {
-      const res = await fetch(`${API}/api/v1/properties/${assigningProperty.id}/assign?user_id=${selectedBroker}`, {
+      const res = await fetch(`${API}/api/v1/imoveis/${assigningProperty.id}/assign?user_id=${selectedBroker}`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -97,7 +104,7 @@ export default function DashboardPage() {
 
   const handleMarkAs = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(`${API}/api/v1/properties/${id}/status`, {
+      const res = await fetch(`${API}/api/v1/imoveis/${id}/status`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus })
@@ -112,18 +119,18 @@ export default function DashboardPage() {
   };
 
   const handleToggleStatus = async (id: number, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'archived' : 'active';
+    const newStatus = currentStatus === 'ativo' ? 'arquivado' : 'ativo';
     try {
-      const res = await fetch(`${API}/api/v1/properties/${id}/status`, {
+      const res = await fetch(`${API}/api/v1/imoveis/${id}/status`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
-        setProperties(prev => prev.map((p: any) => p.id === id ? { ...p, status: newStatus } : p));
+        setProperties(prev => prev.map((p: any) => p.id === id ? { ...p, situacao: newStatus } : p));
       } else {
         const errorData = await res.json();
         toastError(errorData.detail || "Erro ao alterar status");
@@ -215,11 +222,11 @@ export default function DashboardPage() {
               onChange={e => setFilterStatus(e.target.value)}
             >
               <option value="">Todos os status</option>
-              <option value="active">Ativos</option>
-              <option value="pending">Pendentes</option>
-              <option value="sold">Vendidos</option>
-              <option value="rented">Alugados</option>
-              <option value="archived">Arquivados</option>
+              <option value="ativo">Ativos</option>
+              <option value="pendente">Pendentes</option>
+              <option value="vendido">Vendidos</option>
+              <option value="alugado">Alugados</option>
+              <option value="arquivado">Arquivados</option>
             </select>
           </div>
           <button 
@@ -252,11 +259,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!hasSearched ? (
-          <div className="bg-slate-50 p-20 text-center rounded-[3rem] border border-dashed border-slate-200">
-             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-sm">🔍</div>
-             <h3 className="text-xl font-black text-slate-900 mb-2">Pronto para gerenciar sua carteira?</h3>
-             <p className="text-slate-500 max-w-sm mx-auto font-medium">Utilize os filtros acima para listar seus imóveis de forma rápida e organizada.</p>
+        {loading && !hasSearched ? (
+          <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[3rem] border border-slate-100 italic text-slate-400">
+            <div className="w-8 h-8 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            Carregando seus imóveis...
           </div>
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[3rem] border border-slate-100 italic text-slate-400">
@@ -270,8 +276,19 @@ export default function DashboardPage() {
         ) : properties.length === 0 ? (
           <div className="bg-white p-20 text-center rounded-3xl border-2 border-dashed border-slate-200">
             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🏠</div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Nenhum imóvel encontrado</h3>
-            <p className="text-slate-500 mb-8 max-w-sm mx-auto">Tente ajustar seus filtros para encontrar o que procura.</p>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              {filterTitle || filterStatus ? "Nenhum imóvel encontrado" : "Você ainda não tem imóveis cadastrados"}
+            </h3>
+            <p className="text-slate-500 mb-8 max-w-sm mx-auto">
+              {filterTitle || filterStatus
+                ? "Tente ajustar os filtros para encontrar o que procura."
+                : "Publique seu primeiro imóvel e comece a receber leads de compradores interessados."}
+            </p>
+            {!(filterTitle || filterStatus) && (
+              <Link href="/announce" className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                <span>+</span> Publicar Primeiro Imóvel
+              </Link>
+            )}
           </div>
         ) : (
           <>
@@ -280,35 +297,35 @@ export default function DashboardPage() {
                 {properties.map((imovel: any) => (
                   <div key={imovel.id} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 group relative">
                     <div className="relative h-48 overflow-hidden bg-slate-100">
-                      <img src={imovel.image_url || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80"} alt={imovel.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={imovel.url_imagem || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80"} alt={imovel.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-600 flex flex-col gap-1">
-                        <span>{imovel.listing_type}</span>
+                        <span>{imovel.tipo_oferta}</span>
                         {user?.role === 'agency' && (
-                          <span className="text-[8px] bg-slate-900 text-white px-1.5 py-0.5 rounded-md">🏢 {imovel.owner?.name || 'Agência'}</span>
+                          <span className="text-[8px] bg-slate-900 text-white px-1.5 py-0.5 rounded-md">🏢 {imovel.proprietario?.nome || 'Agência'}</span>
                         )}
                       </div>
                       <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
                         <div className={`backdrop-blur px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-widest ${
-                          imovel.status === 'active' ? 'bg-slate-900/40 text-white' :
-                          imovel.status === 'sold' ? 'bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/30' :
-                          imovel.status === 'rented' ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-500/30' :
+                          imovel.situacao === 'ativo' ? 'bg-slate-900/40 text-white' :
+                          imovel.situacao === 'vendido' ? 'bg-emerald-600/90 text-white shadow-lg shadow-emerald-500/30' :
+                          imovel.situacao === 'alugado' ? 'bg-blue-600/90 text-white shadow-lg shadow-blue-500/30' :
                           'bg-red-500/90 text-white shadow-lg shadow-red-500/20'
                         }`}>
-                          {imovel.status === 'active' ? 'Ativo' : imovel.status === 'sold' ? '✓ Vendido' : imovel.status === 'rented' ? '✓ Alugado' : 'Inativo'}
+                          {imovel.situacao === 'ativo' ? 'Ativo' : imovel.situacao === 'vendido' ? '✓ Vendido' : imovel.situacao === 'alugado' ? '✓ Alugado' : imovel.situacao === 'pendente' ? 'Pendente' : 'Arquivado'}
                         </div>
                       </div>
                     </div>
                     <div className="p-6">
-                      <h3 className="font-bold text-slate-900 mb-4 line-clamp-1 h-6">{imovel.title}</h3>
+                      <h3 className="font-bold text-slate-900 mb-4 line-clamp-1 h-6">{imovel.titulo}</h3>
                       <div className="flex items-center justify-between">
                         <div className="text-xl font-black text-slate-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(imovel.price)}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(imovel.preco)}
                         </div>
                         <Link href={`/properties/${imovel.id}`} className="text-sm font-bold text-blue-600 hover:text-blue-700 transition">Ver detalhes →</Link>
                       </div>
                       <div className="flex gap-2 mt-4">
                         <Link href={`/announce/edit/${imovel.id}`} className="flex-1 py-2 text-center text-[10px] bg-blue-50 text-blue-600 border border-blue-100 font-black uppercase tracking-widest rounded-xl hover:bg-blue-100 transition">Editar</Link>
-                        <button onClick={() => handleToggleStatus(imovel.id, imovel.status)} className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition border bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100">{imovel.status === 'active' ? 'Pausar' : 'Reativar'}</button>
+                        <button onClick={() => handleToggleStatus(imovel.id, imovel.situacao)} className="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition border bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100">{imovel.situacao === 'ativo' ? 'Pausar' : 'Reativar'}</button>
                         {user?.role === 'agency' && (
                           <button onClick={() => setAssigningProperty(imovel)} className="flex-1 py-2 bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 hover:text-blue-600 transition border border-transparent hover:border-blue-100">Atribuir</button>
                         )}
@@ -322,37 +339,37 @@ export default function DashboardPage() {
                 {properties.map((imovel: any) => (
                   <div key={imovel.id} className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col md:flex-row items-center gap-6">
                     <div className="w-full md:w-40 h-24 rounded-2xl overflow-hidden bg-slate-100 relative shrink-0">
-                      <img src={imovel.image_url || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80"} alt={imovel.title} className="w-full h-full object-cover" />
+                      <img src={imovel.url_imagem || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80"} alt={imovel.titulo} className="w-full h-full object-cover" />
                       <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-1.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest text-blue-600">
-                        {imovel.listing_type}
+                        {imovel.tipo_oferta}
                       </div>
                     </div>
                     <div className="flex-1 w-full">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                          <h3 className="font-bold text-slate-900 mb-1">{imovel.title}</h3>
+                          <h3 className="font-bold text-slate-900 mb-1">{imovel.titulo}</h3>
                           <div className="flex items-center gap-3">
                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                              imovel.status === 'active' ? 'bg-slate-900 text-white' :
-                              imovel.status === 'sold' ? 'bg-emerald-600 text-white' :
-                              imovel.status === 'rented' ? 'bg-blue-600 text-white' :
+                              imovel.situacao === 'ativo' ? 'bg-slate-900 text-white' :
+                              imovel.situacao === 'vendido' ? 'bg-emerald-600 text-white' :
+                              imovel.situacao === 'alugado' ? 'bg-blue-600 text-white' :
                               'bg-red-500 text-white'
                             }`}>
-                              {imovel.status === 'active' ? 'Ativo' : imovel.status === 'sold' ? 'Vendido' : imovel.status === 'rented' ? 'Alugado' : 'Inativo'}
+                              {imovel.situacao === 'ativo' ? 'Ativo' : imovel.situacao === 'vendido' ? 'Vendido' : imovel.situacao === 'alugado' ? 'Alugado' : imovel.situacao === 'pendente' ? 'Pendente' : 'Arquivado'}
                             </span>
-                            <span className="text-xs font-bold text-slate-400">📍 {imovel.neighborhood}, {imovel.city}</span>
+                            <span className="text-xs font-bold text-slate-400">📍 {imovel.bairro}, {imovel.cidade}</span>
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="text-xl font-black text-slate-900">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(imovel.price)}
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(imovel.preco)}
                           </div>
                           <Link href={`/properties/${imovel.id}`} className="text-xs font-bold text-blue-600 hover:underline">Ver detalhes</Link>
                         </div>
                         <div className="flex gap-2 shrink-0">
                             <Link href={`/announce/edit/${imovel.id}`} className="px-5 py-3 h-11 flex items-center bg-blue-50 text-blue-600 border border-blue-100 font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-blue-100 transition">Editar</Link>
-                            <button onClick={() => handleToggleStatus(imovel.id, imovel.status)} className="px-5 py-3 h-11 flex items-center bg-orange-50 text-orange-600 border border-orange-100 font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-orange-100 transition">
-                                {imovel.status === 'active' ? 'Pausar' : 'Ativar'}
+                            <button onClick={() => handleToggleStatus(imovel.id, imovel.situacao)} className="px-5 py-3 h-11 flex items-center bg-orange-50 text-orange-600 border border-orange-100 font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-orange-100 transition">
+                                {imovel.situacao === 'ativo' ? 'Pausar' : 'Ativar'}
                             </button>
                             {user?.role === 'agency' && (
                                 <button onClick={() => setAssigningProperty(imovel)} className="px-5 py-3 h-11 flex items-center bg-slate-50 text-slate-500 border border-slate-100 font-black uppercase tracking-widest text-[9px] rounded-xl hover:bg-slate-100 transition">Atribuir</button>
@@ -390,7 +407,7 @@ export default function DashboardPage() {
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
               <h2 className="text-2xl font-black text-slate-900 mb-2">Atribuir Corretor</h2>
-              <p className="text-slate-500 mb-8 text-sm font-medium">Selecione um membro da equipe para <span className="text-slate-900 font-bold">{assigningProperty.title}</span>.</p>
+              <p className="text-slate-500 mb-8 text-sm font-medium">Selecione um membro da equipe para <span className="text-slate-900 font-bold">{assigningProperty.titulo}</span>.</p>
               {msg && <p className="mb-4 text-emerald-600 bg-emerald-50 p-3 rounded-xl text-center font-bold text-sm animate-pulse">{msg}</p>}
               <div className="space-y-4">
                 <select 

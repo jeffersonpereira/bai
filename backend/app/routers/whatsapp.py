@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import httpx
 
 from app.db.database import get_db
-from app.models.user import User
+from app.models.usuario import Usuario
 from app.models.whatsapp import WhatsAppSession, WhatsAppMessage
 from app.schemas.whatsapp import (
     WhatsAppSessionStatus,
@@ -15,11 +15,11 @@ from app.schemas.whatsapp import (
     WhatsAppWebhookStatus,
 )
 from app.core.config import settings
-from .auth import get_current_user
+from app.core.deps import get_current_user
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
-ALLOWED_ROLES = {"user", "broker", "agency", "admin"}
+ALLOWED_ROLES = {"comprador", "corretor", "imobiliaria", "admin"}
 
 
 def _node(path: str) -> str:
@@ -30,8 +30,8 @@ def _headers() -> dict:
     return {"X-Internal-Key": settings.WHATSAPP_INTERNAL_KEY}
 
 
-def _check_role(user: User) -> None:
-    if user.role not in ALLOWED_ROLES:
+def _check_role(user: Usuario) -> None:
+    if user.perfil not in ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="Perfil não autorizado para WhatsApp")
 
 
@@ -39,7 +39,7 @@ def _check_role(user: User) -> None:
 
 @router.post("/session/start", response_model=WhatsAppSessionStatus)
 async def start_session(
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _check_role(current_user)
@@ -52,7 +52,7 @@ async def start_session(
 
 
 @router.get("/session/status", response_model=WhatsAppSessionStatus)
-async def session_status(current_user: User = Depends(get_current_user)):
+async def session_status(current_user: Usuario = Depends(get_current_user)):
     _check_role(current_user)
     async with httpx.AsyncClient(timeout=5) as client:
         try:
@@ -66,7 +66,7 @@ async def session_status(current_user: User = Depends(get_current_user)):
 
 @router.delete("/session")
 async def stop_session(
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _check_role(current_user)
@@ -75,7 +75,7 @@ async def stop_session(
             await client.delete(_node(f"/sessions/{current_user.id}"), headers=_headers())
         except httpx.RequestError:
             pass
-    db.query(WhatsAppSession).filter_by(user_id=current_user.id).delete()
+    db.query(WhatsAppSession).filter_by(usuario_id=current_user.id).delete()
     db.commit()
     return {"ok": True}
 
@@ -85,7 +85,7 @@ async def stop_session(
 @router.post("/send")
 async def send_message(
     payload: WhatsAppSendRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _check_role(current_user)
@@ -100,7 +100,7 @@ async def send_message(
         raise HTTPException(status_code=400, detail=detail)
 
     jid = resp.json().get("jid", payload.to)
-    msg = WhatsAppMessage(user_id=current_user.id, chat_jid=jid, direction="out", body=payload.text)
+    msg = WhatsAppMessage(usuario_id=current_user.id, jid_conversa=jid, direcao="saida", conteudo=payload.text)
     db.add(msg)
     db.commit()
     db.refresh(msg)
@@ -111,14 +111,14 @@ async def send_message(
 def list_messages(
     chat_jid: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
-    current_user: User = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _check_role(current_user)
-    q = db.query(WhatsAppMessage).filter(WhatsAppMessage.user_id == current_user.id)
+    q = db.query(WhatsAppMessage).filter(WhatsAppMessage.usuario_id == current_user.id)
     if chat_jid:
-        q = q.filter(WhatsAppMessage.chat_jid == chat_jid)
-    return q.order_by(WhatsAppMessage.timestamp.desc()).limit(limit).all()
+        q = q.filter(WhatsAppMessage.jid_conversa == chat_jid)
+    return q.order_by(WhatsAppMessage.enviado_em.desc()).limit(limit).all()
 
 
 # --- Internal webhooks from Node service ---
@@ -135,7 +135,7 @@ def webhook_message(
     _: None = Depends(_verify_internal),
 ):
     if payload.message_id:
-        if db.query(WhatsAppMessage).filter_by(message_id=payload.message_id).first():
+        if db.query(WhatsAppMessage).filter_by(id_mensagem=payload.message_id).first():
             return {"ok": True, "duplicate": True}
 
     ts = (
@@ -144,12 +144,12 @@ def webhook_message(
         else None
     )
     msg = WhatsAppMessage(
-        user_id=payload.user_id,
-        chat_jid=payload.from_jid,
-        message_id=payload.message_id,
-        direction="in",
-        body=payload.body,
-        timestamp=ts,
+        usuario_id=payload.user_id,
+        jid_conversa=payload.from_jid,
+        id_mensagem=payload.message_id,
+        direcao="entrada",
+        conteudo=payload.body,
+        enviado_em=ts,
     )
     db.add(msg)
     db.commit()
@@ -162,12 +162,12 @@ def webhook_status(
     db: Session = Depends(get_db),
     _: None = Depends(_verify_internal),
 ):
-    session = db.query(WhatsAppSession).filter_by(user_id=payload.user_id).first()
+    session = db.query(WhatsAppSession).filter_by(usuario_id=payload.user_id).first()
     if not session:
-        session = WhatsAppSession(user_id=payload.user_id)
+        session = WhatsAppSession(usuario_id=payload.user_id)
         db.add(session)
-    session.status = payload.status
+    session.situacao = payload.status
     if payload.status == "connected":
-        session.connected_at = datetime.now(tz=timezone.utc)
+        session.conectado_em = datetime.now(tz=timezone.utc)
     db.commit()
     return {"ok": True}

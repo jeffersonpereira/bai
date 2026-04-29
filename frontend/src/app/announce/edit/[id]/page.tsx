@@ -3,6 +3,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import CurrencyInput from "@/app/components/ui/CurrencyInput";
 import NumberMaskInput from "@/app/components/ui/NumberMaskInput";
+import AddressFields, { AddressValue, emptyAddress, formatFullAddress } from "@/app/components/AddressFields";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
@@ -35,6 +36,7 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
     commission_percentage: "",
     full_address: "",
   });
+  const [address, setAddress] = useState<AddressValue>(emptyAddress());
   const [availability, setAvailability] = useState<{day_of_week: number, start_time: string, end_time: string}[]>([]);
   const [showQuickOwner, setShowQuickOwner] = useState(false);
   const [quickOwner, setQuickOwner] = useState({ name: "", phone: "", email: "" });
@@ -58,36 +60,45 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
       } catch (err) { console.error(err); }
 
       try {
-        const propRes = await fetch(`${API}/api/v1/properties/${propertyId}`);
-        
+        const propRes = await fetch(`${API}/api/v1/imoveis/${propertyId}`);
+
         if (propRes.ok) {
-          const propData = await propRes.json();
+          const p = await propRes.json();
           setFormData({
-            title: propData.title,
-            description: propData.description || "",
-            price: propData.price.toString(),
-            area: propData.area ? propData.area.toString() : "",
-            bedrooms: propData.bedrooms ? propData.bedrooms.toString() : "",
-            bathrooms: propData.bathrooms ? propData.bathrooms.toString() : "",
-            garage_spaces: propData.garage_spaces ? propData.garage_spaces.toString() : "",
-            financing_eligible: propData.financing_eligible || false,
-            city: propData.city || "",
-            neighborhood: propData.neighborhood || "",
-            image_url: propData.image_url || "",
-            actual_owner_id: propData.actual_owner_id ? propData.actual_owner_id.toString() : "",
-            commission_percentage: propData.commission_percentage ? propData.commission_percentage.toString() : "",
-            listing_type: propData.listing_type || "venda",
-            property_type: propData.property_type || "apartamento",
-            full_address: propData.full_address || ""
+            title: p.titulo || "",
+            description: p.descricao || "",
+            price: p.preco ? p.preco.toString() : "",
+            area: p.area ? p.area.toString() : "",
+            bedrooms: p.quartos != null ? p.quartos.toString() : "",
+            bathrooms: p.banheiros != null ? p.banheiros.toString() : "",
+            garage_spaces: p.vagas != null ? p.vagas.toString() : "",
+            financing_eligible: p.aceita_financiamento || false,
+            city: p.cidade || "",
+            neighborhood: p.bairro || "",
+            image_url: p.url_imagem || "",
+            actual_owner_id: p.proprietario_id ? p.proprietario_id.toString() : "",
+            commission_percentage: p.percentual_comissao ? p.percentual_comissao.toString() : "",
+            listing_type: p.tipo_oferta || "venda",
+            property_type: p.tipo_imovel || "apartamento",
+            full_address: p.endereco_completo || "",
           });
-          if (propData.media && propData.media.length > 0) {
-            setMediaItems(propData.media.map((m: any) => ({ url: m.url, media_type: m.media_type })));
+          setAddress({
+            cep: "",
+            state: p.estado || "",
+            city: p.cidade || "",
+            neighborhood: p.bairro || "",
+            street: "",
+            number: "",
+            complement: "",
+          });
+          if (p.midias && p.midias.length > 0) {
+            setMediaItems(p.midias.map((m: any) => ({ url: m.url, media_type: m.tipo_midia })));
           }
-          if (propData.availability_windows) {
-            setAvailability(propData.availability_windows.map((a: any) => ({ 
-              day_of_week: a.day_of_week, 
-              start_time: a.start_time.slice(0, 5), 
-              end_time: a.end_time.slice(0, 5) 
+          if (p.janelas_disponibilidade && p.janelas_disponibilidade.length > 0) {
+            setAvailability(p.janelas_disponibilidade.map((a: any) => ({
+              day_of_week: a.dia_semana,
+              start_time: typeof a.hora_inicio === "string" ? a.hora_inicio.slice(0, 5) : "",
+              end_time: typeof a.hora_fim === "string" ? a.hora_fim.slice(0, 5) : "",
             })));
           }
         }
@@ -157,25 +168,37 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
     }
 
     try {
-      const res = await fetch(`${API}/api/v1/properties/${propertyId}`, {
+      const res = await fetch(`${API}/api/v1/imoveis/${propertyId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
+          titulo: formData.title,
+          descricao: formData.description || null,
+          preco: parseFloat(formData.price),
+          valor_aluguel: null,
           area: formData.area ? parseFloat(formData.area) : null,
-          bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-          bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
-          garage_spaces: formData.garage_spaces ? parseInt(formData.garage_spaces) : 0,
-          financing_eligible: formData.financing_eligible,
-          actual_owner_id: formData.actual_owner_id ? parseInt(formData.actual_owner_id) : null,
-          commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
-          full_address: formData.full_address || null,
-          media: mediaItems.filter(m => m.url.trim() !== ""),
-          availability_windows: availability
+          quartos: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+          banheiros: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+          vagas: formData.garage_spaces ? parseInt(formData.garage_spaces) : 0,
+          aceita_financiamento: formData.financing_eligible,
+          cidade: address.city || null,
+          bairro: address.neighborhood || null,
+          estado: address.state || null,
+          endereco_completo: formatFullAddress(address) || null,
+          tipo_oferta: formData.listing_type,
+          tipo_imovel: formData.property_type,
+          url_imagem: formData.image_url || null,
+          proprietario_id: formData.actual_owner_id ? parseInt(formData.actual_owner_id) : null,
+          percentual_comissao: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
+          midias: mediaItems.filter(m => m.url.trim() !== "").map(m => ({ url: m.url, tipo_midia: m.media_type })),
+          janelas_disponibilidade: availability.map(a => ({
+            dia_semana: a.day_of_week,
+            hora_inicio: a.start_time,
+            hora_fim: a.end_time,
+          })),
         }),
       });
 
@@ -248,20 +271,13 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
               <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
               Localização
             </h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Cidade</label>
-                <input type="text" name="city" value={formData.city} onChange={handleChange} required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="Ex: São Paulo" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Bairro</label>
-                <input type="text" name="neighborhood" value={formData.neighborhood} onChange={handleChange} required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="Ex: Jardins" />
-              </div>
-            </div>
-            <div>
-               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Endereço Completo (para visualização no mapa)</label>
-               <input type="text" name="full_address" value={formData.full_address} onChange={handleChange} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="Ex: Av. Paulista, 1000 - Bela Vista, São Paulo - SP" />
-            </div>
+            <AddressFields
+              value={address}
+              onChange={setAddress}
+              inputCls="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition"
+              labelCls="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2"
+              required
+            />
           </div>
 
           <div className="pt-8 border-t border-slate-100 space-y-6">

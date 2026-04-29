@@ -15,22 +15,22 @@ function BuyerProfileContent() {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [locations, setLocations] = useState<Record<string, string[]>>({});
   const [formData, setFormData] = useState({
-    name: "Meu Perfil",
-    min_price: "", max_price: "",
-    city: "", neighborhood: "",
-    property_type: "", listing_type: "venda",
-    min_bedrooms: "", min_bathrooms: "", min_garage_spaces: "",
-    financing_approved: false
+    nome_perfil: "Meu Perfil",
+    preco_minimo: "", preco_maximo: "",
+    cidade: "", bairro: "",
+    tipo_imovel: "", tipo_oferta: "venda",
+    quartos_minimo: "", banheiros_minimo: "", vagas_minimo: "",
+    financiamento_aprovado: false
   });
 
   useEffect(() => {
-    fetch(`${API}/api/v1/properties/locations`)
+    fetch(`${API}/api/v1/imoveis/locations`)
       .then(res => res.json())
       .then(data => setLocations(data))
       .catch(console.error);
 
     if (!profileId) {
-      setFormData(prev => ({ ...prev, name: "Novo Perfil de Busca" }));
+      setFormData(prev => ({ ...prev, nome_perfil: "Novo Perfil de Busca" }));
       return;
     }
 
@@ -43,13 +43,13 @@ function BuyerProfileContent() {
         if (res.ok) {
           const data = await res.json();
           setFormData({
-            name: data.name || "Meu Perfil",
-            min_price: data.min_price || "", max_price: data.max_price || "",
-            city: data.city || "", neighborhood: data.neighborhood || "",
-            property_type: data.property_type || "", listing_type: data.listing_type || "venda",
-            min_bedrooms: data.min_bedrooms || "", min_bathrooms: data.min_bathrooms || "",
-            min_garage_spaces: data.min_garage_spaces || "",
-            financing_approved: data.financing_approved || false
+            nome_perfil: data.nome_perfil || "Meu Perfil",
+            preco_minimo: data.preco_minimo || "", preco_maximo: data.preco_maximo || "",
+            cidade: data.cidade || "", bairro: data.bairro || "",
+            tipo_imovel: data.tipo_imovel || "", tipo_oferta: data.tipo_oferta || "venda",
+            quartos_minimo: data.quartos_minimo || "", banheiros_minimo: data.banheiros_minimo || "",
+            vagas_minimo: data.vagas_minimo || "",
+            financiamento_aprovado: data.financiamento_aprovado || false
           });
         }
       } catch (err) {}
@@ -61,9 +61,9 @@ function BuyerProfileContent() {
     const { name, value, type, checked } = e.target;
     setFormData(prev => {
       const newState = { ...prev, [name]: type === 'checkbox' ? checked : value };
-      // Clear neighborhood if city changes to keep data consistent
-      if (name === "city" && value !== prev.city) {
-        newState.neighborhood = "";
+      // Clear bairro if cidade changes to keep data consistent
+      if (name === "cidade" && value !== prev.cidade) {
+        newState.bairro = "";
       }
       return newState;
     });
@@ -78,8 +78,8 @@ function BuyerProfileContent() {
     const payload = { ...formData } as any;
     
     // Validations
-    const minP = payload.min_price ? Number(payload.min_price) : 0;
-    const maxP = payload.max_price ? Number(payload.max_price) : Infinity;
+    const minP = payload.preco_minimo ? Number(payload.preco_minimo) : 0;
+    const maxP = payload.preco_maximo ? Number(payload.preco_maximo) : Infinity;
 
     if (maxP > 0 && minP > maxP) {
       setFeedback({ type: "error", message: "O preço mínimo não pode ser maior que o preço máximo." });
@@ -87,12 +87,12 @@ function BuyerProfileContent() {
       return;
     }
 
-    ["min_price", "max_price", "min_bedrooms", "min_bathrooms", "min_garage_spaces"].forEach(k => {
+    ["preco_minimo", "preco_maximo", "quartos_minimo", "banheiros_minimo", "vagas_minimo"].forEach(k => {
       payload[k] = payload[k] === "" ? null : Number(payload[k]);
     });
-    if (payload.city === "") payload.city = null;
-    if (payload.neighborhood === "") payload.neighborhood = null;
-    if (payload.property_type === "") payload.property_type = null;
+    if (payload.cidade === "") payload.cidade = null;
+    if (payload.bairro === "") payload.bairro = null;
+    if (payload.tipo_imovel === "") payload.tipo_imovel = null;
 
     try {
       const url = profileId
@@ -168,7 +168,7 @@ function BuyerProfileContent() {
         <div>
           <label className={labelCls}>Nome Sugestivo do Perfil</label>
           <input
-            type="text" name="name" value={formData.name}
+            type="text" name="nome_perfil" value={formData.nome_perfil}
             onChange={handleChange} required
             className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all text-slate-900 font-black text-lg placeholder:text-slate-300"
             placeholder="Ex: Minha Casa Própria, Investimento..."
@@ -181,8 +181,8 @@ function BuyerProfileContent() {
             <div>
               <label className={labelCls}>Preço Mínimo</label>
               <CurrencyInput
-                value={formData.min_price}
-                onChange={(val) => setFormData(p => ({...p, min_price: val !== undefined ? String(val) : ""}))}
+                value={formData.preco_minimo}
+                onChange={(val) => setFormData(p => ({...p, preco_minimo: val !== undefined ? String(val) : ""}))}
                 className={inputCls}
                 placeholder="R$ 0,00"
               />
@@ -190,8 +190,8 @@ function BuyerProfileContent() {
             <div>
               <label className={labelCls}>Preço Máximo</label>
               <CurrencyInput
-                value={formData.max_price}
-                onChange={(val) => setFormData(p => ({...p, max_price: val !== undefined ? String(val) : ""}))}
+                value={formData.preco_maximo}
+                onChange={(val) => setFormData(p => ({...p, preco_maximo: val !== undefined ? String(val) : ""}))}
                 placeholder="Sem limite"
                 className={inputCls}
               />
@@ -204,7 +204,7 @@ function BuyerProfileContent() {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className={labelCls}>Tipo de Negócio</label>
-              <select name="listing_type" value={formData.listing_type} onChange={handleChange} className={selectCls}>
+              <select name="tipo_oferta" value={formData.tipo_oferta} onChange={handleChange} className={selectCls}>
                 <option value="venda">Compra</option>
                 <option value="aluguel">Aluguel</option>
                 <option value="temporada">Temporada</option>
@@ -212,7 +212,7 @@ function BuyerProfileContent() {
             </div>
             <div>
               <label className={labelCls}>Tipo de Imóvel</label>
-              <select name="property_type" value={formData.property_type} onChange={handleChange} className={selectCls}>
+              <select name="tipo_imovel" value={formData.tipo_imovel} onChange={handleChange} className={selectCls}>
                 <option value="">Qualquer tipo</option>
                 <option value="apartamento">Apartamento</option>
                 <option value="casa">Casa</option>
@@ -224,7 +224,7 @@ function BuyerProfileContent() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Cidade</label>
-              <select name="city" value={formData.city} onChange={handleChange} className={selectCls}>
+              <select name="cidade" value={formData.cidade} onChange={handleChange} className={selectCls}>
                 <option value="">Qualquer cidade</option>
                 {Object.keys(locations).map(c => (
                   <option key={c} value={c}>{c}</option>
@@ -234,10 +234,10 @@ function BuyerProfileContent() {
             <div>
               <label className={labelCls}>Bairros / Regiões</label>
               <RegionTagsInput
-                value={formData.neighborhood}
-                onChange={(val) => setFormData(p => ({...p, neighborhood: val}))}
+                value={formData.bairro}
+                onChange={(val) => setFormData(p => ({...p, bairro: val}))}
                 placeholder="Ex: Pinheiros, Barra..."
-                suggestions={formData.city ? locations[formData.city] || [] : []}
+                suggestions={formData.cidade ? locations[formData.cidade] || [] : []}
               />
             </div>
           </div>
@@ -248,23 +248,23 @@ function BuyerProfileContent() {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Quartos</label>
-              <input type="number" name="min_bedrooms" value={formData.min_bedrooms} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
+              <input type="number" name="quartos_minimo" value={formData.quartos_minimo} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
             </div>
             <div>
               <label className={labelCls}>Banheiros</label>
-              <input type="number" name="min_bathrooms" value={formData.min_bathrooms} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
+              <input type="number" name="banheiros_minimo" value={formData.banheiros_minimo} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
             </div>
             <div>
               <label className={labelCls}>Vagas</label>
-              <input type="number" name="min_garage_spaces" value={formData.min_garage_spaces} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
+              <input type="number" name="vagas_minimo" value={formData.vagas_minimo} onChange={handleChange} className={inputCls} placeholder="Mín." min="0" />
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200">
           <input
-            type="checkbox" id="financing" name="financing_approved"
-            checked={formData.financing_approved} onChange={handleChange}
+            type="checkbox" id="financing" name="financiamento_aprovado"
+            checked={formData.financiamento_aprovado} onChange={handleChange}
             className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-slate-300"
           />
           <label htmlFor="financing" className="text-sm font-semibold text-slate-700 cursor-pointer">

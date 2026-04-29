@@ -8,3 +8,4 @@ class AdminStats(BaseModel):
     total_properties: int
     total_leads: int
     recent_registrations: int
+    premium_users: int

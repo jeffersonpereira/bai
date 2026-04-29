@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CurrencyInput from "@/app/components/ui/CurrencyInput";
 import NumberMaskInput from "@/app/components/ui/NumberMaskInput";
+import AddressFields, { AddressValue, emptyAddress, formatFullAddress } from "@/app/components/AddressFields";
 
 export default function AnnouncePage() {
   const router = useRouter();
@@ -44,6 +45,7 @@ export default function AnnouncePage() {
     ar_condicionado: false,
     energia_solar: false,
   });
+  const [address, setAddress] = useState<AddressValue>(emptyAddress());
   const [availability, setAvailability] = useState<{day_of_week: number, start_time: string, end_time: string}[]>([]);
   const [showQuickOwner, setShowQuickOwner] = useState(false);
   const [quickOwner, setQuickOwner] = useState({ name: "", phone: "", email: "" });
@@ -103,17 +105,17 @@ export default function AnnouncePage() {
   const handleAnalyzePrice = async () => {
     const price = parseFloat(formData.price);
     const area = parseFloat(formData.area);
-    if (!price || !area || !formData.city) return;
+    if (!price || !area || !address.city) return;
     setAnalyzingPrice(true);
     try {
-      const res = await fetch(`${API}/api/v1/properties/price-analysis`, {
+      const res = await fetch(`${API}/api/v1/imoveis/price-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           price,
           area,
-          city: formData.city || null,
-          neighborhood: formData.neighborhood || null,
+          city: address.city || null,
+          neighborhood: address.neighborhood || null,
           bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
           listing_type: formData.listing_type,
         }),
@@ -148,25 +150,34 @@ export default function AnnouncePage() {
       const atributosAtivos = Object.fromEntries(
         Object.entries(atributosExtras).filter(([, v]) => v)
       );
-      const res = await fetch(`${API}/api/v1/properties/`, {
+      const res = await fetch(`${API}/api/v1/imoveis/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
+          titulo: formData.title,
+          descricao: formData.description || null,
+          preco: parseFloat(formData.price),
           valor_aluguel: formData.valor_aluguel ? parseFloat(formData.valor_aluguel) : null,
           area: formData.area ? parseFloat(formData.area) : null,
-          bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : null,
-          bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : null,
-          garage_spaces: formData.garage_spaces ? parseInt(formData.garage_spaces) : 0,
-          financing_eligible: formData.financing_eligible,
-          actual_owner_id: formData.actual_owner_id ? parseInt(formData.actual_owner_id) : null,
-          commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
-          full_address: formData.full_address || null,
-          state: formData.state || null,
+          quartos: formData.bedrooms ? parseInt(formData.bedrooms) : null,
+          banheiros: formData.bathrooms ? parseInt(formData.bathrooms) : null,
+          vagas: formData.garage_spaces ? parseInt(formData.garage_spaces) : 0,
+          aceita_financiamento: formData.financing_eligible,
+          cidade: address.city || null,
+          bairro: address.neighborhood || null,
+          estado: address.state || null,
+          endereco_completo: formatFullAddress(address) || null,
+          tipo_oferta: formData.listing_type,
+          tipo_imovel: formData.property_type,
+          proprietario_id: formData.actual_owner_id ? parseInt(formData.actual_owner_id) : null,
+          percentual_comissao: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
           atributos_extras: Object.keys(atributosAtivos).length > 0 ? atributosAtivos : null,
-          media: mediaItems.filter(m => m.url.trim() !== ""),
-          availability_windows: availability
+          midias: mediaItems.filter(m => m.url.trim() !== ""),
+          janelas_disponibilidade: availability.map(a => ({
+            dia_semana: a.day_of_week,
+            hora_inicio: a.start_time,
+            hora_fim: a.end_time,
+          })),
         }),
       });
 
@@ -176,7 +187,7 @@ export default function AnnouncePage() {
       }
 
       setSuccess(true);
-      setTimeout(() => router.push("/search"), 2000);
+      setTimeout(() => router.push("/dashboard/seller"), 2000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -192,8 +203,13 @@ export default function AnnouncePage() {
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
       <div className="mb-8">
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mb-4">
+          <a href="/dashboard" className="hover:text-blue-600 transition">Dashboard</a>
+          <span>›</span>
+          <span className="text-slate-600">Novo Anúncio</span>
+        </div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-1">Anuncie seu Imóvel</h1>
-        <p className="text-slate-500 text-sm">Preencha os dados abaixo para publicar no marketplace BAI.</p>
+        <p className="text-slate-500 text-sm">Preencha os dados abaixo para publicar no marketplace BAI. Campos com <span className="text-red-500">*</span> são obrigatórios.</p>
       </div>
 
       {error && (
@@ -292,24 +308,13 @@ export default function AnnouncePage() {
         {/* Localização */}
         <div className={sectionCls}>
           <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Localização</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="md:col-span-1">
-              <label className={labelCls}>Cidade</label>
-              <input type="text" name="city" value={formData.city} onChange={handleChange} required className={inputCls} placeholder="Ex: São Paulo" />
-            </div>
-            <div className="md:col-span-1">
-              <label className={labelCls}>Bairro</label>
-              <input type="text" name="neighborhood" value={formData.neighborhood} onChange={handleChange} required className={inputCls} placeholder="Ex: Jardins" />
-            </div>
-            <div className="md:col-span-1">
-              <label className={labelCls}>Estado (UF)</label>
-              <input type="text" name="state" value={formData.state} onChange={handleChange} className={inputCls} placeholder="Ex: SP" maxLength={2} />
-            </div>
-          </div>
-          <div className="pt-2">
-            <label className={labelCls}>Endereço Completo (para visualização no mapa)</label>
-            <input type="text" name="full_address" value={formData.full_address} onChange={handleChange} className={inputCls} placeholder="Ex: Av. Paulista, 1000 - Bela Vista, São Paulo - SP" />
-          </div>
+          <AddressFields
+            value={address}
+            onChange={setAddress}
+            inputCls={inputCls}
+            labelCls={labelCls}
+            required
+          />
         </div>
 
         {/* Detalhes */}
@@ -434,6 +439,7 @@ export default function AnnouncePage() {
             <div>
               <label className={labelCls}>Comissão (%)</label>
               <NumberMaskInput decimalScale={1} suffix=" %" value={formData.commission_percentage} onChange={(val) => setFormData({...formData, commission_percentage: val !== undefined ? String(val) : ""})} className={inputCls} placeholder="Ex: 6,0 %" />
+              <p className="mt-1.5 text-xs text-slate-400">Percentual acordado com o proprietário. Usado no cálculo automático de comissões.</p>
             </div>
           </div>
         </div>
@@ -551,13 +557,18 @@ export default function AnnouncePage() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={`w-full py-3.5 rounded-xl text-white font-bold text-base transition-all ${loading ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg'}`}
-        >
-          {loading ? "Publicando..." : "Publicar Anúncio"}
-        </button>
+        <div className="bg-slate-50 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-slate-500 text-center sm:text-left">
+            Após publicar, o imóvel ficará visível no marketplace e você receberá leads pelo CRM.
+          </p>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full sm:w-auto px-10 py-4 rounded-xl text-white font-bold text-base transition-all shrink-0 ${loading ? 'bg-slate-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-100 hover:shadow-lg active:scale-95'}`}
+          >
+            {loading ? "Publicando..." : "Publicar Anúncio →"}
+          </button>
+        </div>
       </form>
     </div>
   );

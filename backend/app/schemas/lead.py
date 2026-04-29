@@ -4,37 +4,37 @@ from typing import List
 
 
 class LeadBase(BaseModel):
-    property_id: int
-    name: str
+    imovel_id: int
+    nome: str
     email: EmailStr | None = None
-    phone: str | None = None
-    source: str | None = "site"
-    status: str | None = "novo"
-    notes: str | None = None
+    telefone: str | None = None
+    origem: str | None = "site"
+    situacao: str | None = "novo"
+    observacoes: str | None = None
 
 
-class LeadCreate(LeadBase):
+class LeadCriar(LeadBase):
     pass
 
 
-class LeadResponse(LeadBase):
+class LeadResposta(LeadBase):
     id: int
-    created_at: datetime
+    criado_em: datetime
     broker_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedLeads(BaseModel):
-    items: List[LeadResponse]
+    items: List[LeadResposta]
     total: int
     page: int
     limit: int
 
 
 class ActivityBase(BaseModel):
-    activity_type: str
-    description: str
+    tipo_atividade: str
+    descricao: str
 
 
 class ActivityCreate(ActivityBase):
@@ -43,8 +43,8 @@ class ActivityCreate(ActivityBase):
 
 class ActivityResponse(ActivityBase):
     id: int
-    user_id: int
-    created_at: datetime
+    usuario_id: int
+    criado_em: datetime
     user_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

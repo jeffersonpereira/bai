@@ -1,5 +1,5 @@
 import Link from "next/link";
-import PropertyCard from "../components/PropertyCard";
+import CardImovel from "../components/CardImovel";
 import ActiveFilters from "./components/ActiveFilters";
 import SearchClientWrapper from "./components/SearchClientWrapper";
 import SortDropdown from "./components/SortDropdown";
@@ -19,7 +19,7 @@ async function getProperties(params: any) {
   });
   
   try {
-    const res = await fetch(`${API}/api/v1/properties/?${queryParams.toString()}`, { cache: 'no-store' });
+    const res = await fetch(`${API}/api/v1/imoveis/?${queryParams.toString()}`, { cache: 'no-store' });
     if (!res.ok) return { items: [], total: 0, page: 1, limit: 20 };
     return res.json();
   } catch (error) {
@@ -30,7 +30,7 @@ async function getProperties(params: any) {
 
 async function getLocations() {
   try {
-    const res = await fetch(`${API}/api/v1/properties/locations`, { cache: 'no-store' });
+    const res = await fetch(`${API}/api/v1/imoveis/locations`, { cache: 'no-store' });
     if (!res.ok) return {};
     return res.json();
   } catch (err) {
@@ -88,7 +88,7 @@ export default async function SearchPage({
         <>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {properties.map((imovel: any) => (
-              <PropertyCard key={imovel.id} imovel={imovel} />
+              <CardImovel key={imovel.id} imovel={imovel} />
             ))}
           </div>
 

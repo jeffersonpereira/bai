@@ -9,6 +9,15 @@ import { useToast } from "@/app/components/ui/Toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
+const COLUNAS_KANBAN = [
+  { key: 'novo',       label: 'Novo',       bg: 'bg-blue-500' },
+  { key: 'contatado',  label: 'Contatado',  bg: 'bg-amber-500' },
+  { key: 'visita',     label: 'Visita',     bg: 'bg-purple-500' },
+  { key: 'proposta',   label: 'Proposta',   bg: 'bg-orange-500' },
+  { key: 'fechado',    label: 'Fechado',    bg: 'bg-emerald-500' },
+  { key: 'perdido',    label: 'Perdido',    bg: 'bg-red-400' },
+];
+
 export default function CRMDashboard() {
   const router = useRouter();
   const { success, error: toastError } = useToast();
@@ -23,12 +32,25 @@ export default function CRMDashboard() {
   
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [newLead, setNewLead] = useState({ name: "", phone: "", email: "", property_id: "" });
-  
+  const [viewMode, setViewMode] = useState<'lista' | 'kanban'>('lista');
+  const [kanbanLeads, setKanbanLeads] = useState<Record<string, any[]>>({});
+
   // Estados para Paginação e Busca
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [totalNewLeads, setTotalNewLeads] = useState(0);
   const limit = 20;
+
+  const fetchKanban = async () => {
+    const token = localStorage.getItem("bai_token");
+    try {
+      const res = await fetch(`${API}/api/v1/crm/leads/kanban`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) setKanbanLeads(await res.json());
+    } catch (err) { console.error(err); }
+  };
 
   const fetchActivities = async (leadId: number) => {
     const token = localStorage.getItem("bai_token");
@@ -50,7 +72,7 @@ export default function CRMDashboard() {
           "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ activity_type: newActivity.type, description: newActivity.desc })
+        body: JSON.stringify({ tipo_atividade: newActivity.type, descricao: newActivity.desc })
       });
       if (res.ok) {
         setNewActivity({ ...newActivity, desc: "" });
@@ -76,11 +98,11 @@ export default function CRMDashboard() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          name: newLead.name,
-          phone: newLead.phone || null,
+          nome: newLead.name,
+          telefone: newLead.phone || null,
           email: newLead.email || null,
-          property_id: propertyId,
-          source: "manual"
+          imovel_id: propertyId,
+          origem: "manual"
         })
       });
       if (res.ok) {
@@ -107,23 +129,36 @@ export default function CRMDashboard() {
         limit: String(limit),
         ...(searchTerm ? { search: searchTerm } : {})
       });
-      const res = await fetch(`${API}/api/v1/crm/leads?${query.toString()}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const [res, newRes] = await Promise.all([
+        fetch(`${API}/api/v1/crm/leads?${query.toString()}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+        fetch(`${API}/api/v1/crm/leads?skip=0&limit=1&situacao=novo`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        }),
+      ]);
       if (res.ok) {
         const data = await res.json();
         setLeads(data.items || []);
         setTotalLeads(data.total || 0);
       }
-    } catch (err) { 
+      if (newRes.ok) {
+        const newData = await newRes.json();
+        setTotalNewLeads(newData.total || 0);
+      }
+    } catch (err) {
       console.error(err);
-      setLeads([]); 
+      setLeads([]);
     }
   };
 
   useEffect(() => {
     fetchLeads();
   }, [page, searchTerm]);
+
+  useEffect(() => {
+    if (viewMode === 'kanban') fetchKanban();
+  }, [viewMode]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -137,14 +172,17 @@ export default function CRMDashboard() {
         const [ownersRes, userRes, propsRes] = await Promise.all([
           fetch(`${API}/api/v1/crm/owners`, { headers: { "Authorization": `Bearer ${token}` } }),
           fetch(`${API}/api/v1/auth/me`, { headers: { "Authorization": `Bearer ${token}` } }),
-          fetch(`${API}/api/v1/properties/user/me`, { headers: { "Authorization": `Bearer ${token}` } })
+          fetch(`${API}/api/v1/imoveis/user/me`, { headers: { "Authorization": `Bearer ${token}` } })
         ]);
 
         if (ownersRes.ok) {
           const ownersData = await ownersRes.json();
           setOwners(ownersData.items || ownersData);
         }
-        if (propsRes.ok) setProperties(await propsRes.json());
+        if (propsRes.ok) {
+          const propsData = await propsRes.json();
+          setProperties(propsData.items || propsData);
+        }
         if (userRes.ok) {
           const userData = await userRes.json();
           if (userData.role === 'broker' && userData.parent_id !== null) {
@@ -166,13 +204,13 @@ export default function CRMDashboard() {
   const updateLeadStatus = async (leadId: number, newStatus: string) => {
     const token = localStorage.getItem("bai_token");
     try {
-      await fetch(`${API}/api/v1/crm/leads/${leadId}/status?status=${newStatus}`, {
+      await fetch(`${API}/api/v1/crm/leads/${leadId}/status?situacao=${newStatus}`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}` }
       });
       // Refresh local state if it's an array
       if (Array.isArray(leads)) {
-        setLeads(leads.map((l: any) => l.id === leadId ? { ...l, status: newStatus } : l));
+        setLeads(leads.map((l: any) => l.id === leadId ? { ...l, situacao: newStatus } : l));
       } else {
         fetchLeads();
       }
@@ -244,15 +282,18 @@ export default function CRMDashboard() {
       <div className="grid lg:grid-cols-3 gap-8 mb-12">
         <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-200">
           <div className="text-blue-100 text-sm font-bold uppercase tracking-widest mb-2">Leads Novos</div>
-          <div className="text-5xl font-black">{(leads || []).filter((l: any) => l.status === 'novo').length}</div>
+          <div className="text-5xl font-black">{totalNewLeads}</div>
+          <div className="text-blue-200 text-xs font-medium mt-2">Aguardando primeiro contato</div>
         </div>
         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-slate-200">
           <div className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">Proprietários</div>
           <div className="text-5xl font-black">{(owners || []).length}</div>
+          <div className="text-slate-500 text-xs font-medium mt-2">Na sua carteira</div>
         </div>
         <div className="bg-white rounded-[2.5rem] p-8 text-slate-900 border border-slate-100 shadow-sm">
           <div className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">Total de Leads</div>
-          <div className="text-5xl font-black">{(leads || []).length}</div>
+          <div className="text-5xl font-black">{totalLeads}</div>
+          <div className="text-slate-400 text-xs font-medium mt-2">No funil de vendas</div>
         </div>
       </div>
 
@@ -263,34 +304,136 @@ export default function CRMDashboard() {
               <span className="w-1.5 h-6 bg-blue-600 rounded-full"></span>
               Funil de Interessados (Leads)
             </h2>
-            
-            <div className="flex-1 max-w-md relative group">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">🔍</span>
-              <input 
-                type="text" 
-                placeholder="Buscar lead por nome, email ou telefone..."
-                className="w-full pl-12 pr-6 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition font-medium text-slate-700 text-sm"
-                value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              />
+
+            <div className="flex items-center gap-3">
+              <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                <button
+                  onClick={() => setViewMode('lista')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${viewMode === 'lista' ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Lista
+                </button>
+                <button
+                  onClick={() => setViewMode('kanban')}
+                  className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition ${viewMode === 'kanban' ? 'bg-white shadow text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Kanban
+                </button>
+              </div>
             </div>
+
+            {viewMode === 'lista' && (
+              <div className="flex-1 max-w-md relative group">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Buscar lead por nome, email ou telefone..."
+                  className="w-full pl-12 pr-6 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition font-medium text-slate-700 text-sm"
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                />
+              </div>
+            )}
           </div>
           
-          <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
+          {viewMode === 'kanban' && (
+            <div className="overflow-x-auto pb-4">
+              <div className="flex gap-4 min-w-max">
+                {COLUNAS_KANBAN.map(col => (
+                  <div
+                    key={col.key}
+                    className="w-64 flex-shrink-0"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const leadId = parseInt(e.dataTransfer.getData('leadId'));
+                      if (!leadId) return;
+                      setKanbanLeads(prev => {
+                        const updated: Record<string, any[]> = {};
+                        for (const k of Object.keys(prev)) updated[k] = [...prev[k]];
+                        let movedLead: any = null;
+                        for (const k of Object.keys(updated)) {
+                          const idx = updated[k].findIndex(l => l.id === leadId);
+                          if (idx !== -1) { movedLead = updated[k].splice(idx, 1)[0]; break; }
+                        }
+                        if (movedLead) updated[col.key] = [{ ...movedLead, situacao: col.key }, ...(updated[col.key] || [])];
+                        return updated;
+                      });
+                      updateLeadStatus(leadId, col.key);
+                    }}
+                  >
+                    <div className="bg-slate-100 rounded-2xl p-3 min-h-[200px]">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${col.bg}`}></span>
+                          <span className="text-xs font-black uppercase tracking-widest text-slate-600">{col.label}</span>
+                        </div>
+                        <span className="text-xs bg-white rounded-full px-2 py-0.5 font-bold text-slate-500 shadow-sm">
+                          {(kanbanLeads[col.key] || []).length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {(kanbanLeads[col.key] || []).map(lead => (
+                          <div
+                            key={lead.id}
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData('leadId', String(lead.id))}
+                            className="bg-white rounded-xl p-3 shadow-sm cursor-grab active:cursor-grabbing border border-slate-100 hover:border-blue-200 hover:shadow-md transition group"
+                          >
+                            <div className="font-bold text-sm text-slate-900 mb-1 truncate">{lead.nome}</div>
+                            <div className="text-xs text-slate-400 truncate">{lead.telefone || lead.email || '—'}</div>
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+                              <span className="text-[10px] text-slate-400 font-medium">Imóvel #{lead.imovel_id}</span>
+                              <button
+                                onClick={() => {
+                                  setSelectedLead({ ...lead, name: lead.nome, property_id: lead.imovel_id });
+                                  fetchActivities(lead.id);
+                                }}
+                                className="text-[9px] font-black uppercase tracking-widest text-blue-600 opacity-0 group-hover:opacity-100 transition bg-blue-50 px-2 py-1 rounded-lg"
+                              >
+                                Histórico
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        {(kanbanLeads[col.key] || []).length === 0 && (
+                          <div className="text-center py-10 text-slate-300 text-xs font-bold border-2 border-dashed border-slate-200 rounded-xl">
+                            Arraste leads aqui
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {viewMode === 'lista' && <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Interessado</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Imóvel (ID)</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Imóvel</th>
                   {user?.role === 'agency' && (
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Corretor</th>
                   )}
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Data</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Mover Etapa / Histórico</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
+                {loading && leads.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-16 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-7 h-7 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+                        <span className="text-sm text-slate-400 font-medium">Carregando leads...</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {(leads || []).map((lead: any) => (
                   <tr key={lead.id} className="hover:bg-slate-50/50 transition">
                     <td className="px-6 py-5">
@@ -307,7 +450,18 @@ export default function CRMDashboard() {
                         <div className="text-xs text-slate-500">{lead.phone || lead.email}</div>
                       )}
                     </td>
-                    <td className="px-6 py-5 text-sm font-medium text-slate-600">#{lead.property_id}</td>
+                    <td className="px-6 py-5">
+                      {(() => {
+                        const prop = properties.find((p: any) => p.id === lead.property_id);
+                        return prop ? (
+                          <Link href={`/properties/${lead.property_id}`} className="text-sm font-medium text-slate-700 hover:text-blue-600 transition line-clamp-1 max-w-[180px] block" title={prop.title}>
+                            {prop.title}
+                          </Link>
+                        ) : (
+                          <span className="text-sm text-slate-400">#{lead.property_id}</span>
+                        );
+                      })()}
+                    </td>
                     {user?.role === 'agency' && (
                       <td className="px-6 py-5 text-xs font-bold text-blue-600">
                         {lead.broker_name || 'Agência'}
@@ -318,18 +472,18 @@ export default function CRMDashboard() {
                     </td>
                     <td className="px-6 py-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                        lead.status === 'novo' ? 'bg-blue-100 text-blue-600' :
-                        lead.status === 'contatado' ? 'bg-amber-100 text-amber-600' :
-                        lead.status === 'fechado' ? 'bg-emerald-100 text-emerald-600' :
+                        lead.situacao === 'novo' ? 'bg-blue-100 text-blue-600' :
+                        lead.situacao === 'contatado' ? 'bg-amber-100 text-amber-600' :
+                        lead.situacao === 'fechado' ? 'bg-emerald-100 text-emerald-600' :
                         'bg-slate-100 text-slate-500'
                       }`}>
-                        {lead.status}
+                        {lead.situacao}
                       </span>
                     </td>
                     <td className="px-6 py-5 flex items-center gap-2">
-                        <select 
+                        <select
                           className="bg-transparent text-xs font-bold text-blue-600 focus:outline-none cursor-pointer"
-                          value={lead.status}
+                          value={lead.situacao}
                           onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
                         >
                           <option value="novo">Novo</option>
@@ -378,7 +532,7 @@ export default function CRMDashboard() {
                 </div>
               </div>
             )}
-          </div>
+          </div>}
         </section>
       </div>
 
@@ -430,10 +584,10 @@ export default function CRMDashboard() {
                     </div>
                     <div className="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{act.activity_type}</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{act.tipo_atividade}</span>
                         <span className="text-[10px] text-slate-400 font-bold">{new Date(act.created_at).toLocaleString('pt-BR')}</span>
                       </div>
-                      <p className="text-slate-700 text-sm font-medium leading-relaxed">{act.description}</p>
+                      <p className="text-slate-700 text-sm font-medium leading-relaxed">{act.descricao}</p>
                       <div className="mt-3 pt-3 border-t border-slate-50 text-[10px] text-slate-400 font-bold flex items-center gap-2">
                          <div className="w-4 h-4 bg-slate-100 rounded-full flex items-center justify-center">👤</div>
                          Por: {act.user_name}
@@ -442,9 +596,10 @@ export default function CRMDashboard() {
                   </div>
                 ))}
                 {activities.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4 opacity-20">🕒</div>
-                    <p className="text-slate-400 italic font-medium">Nenhuma atividade registrada ainda.</p>
+                  <div className="text-center py-12 bg-slate-50 rounded-3xl">
+                    <div className="text-4xl mb-4 opacity-30">🕒</div>
+                    <p className="text-slate-500 font-bold mb-1">Nenhuma atividade registrada</p>
+                    <p className="text-slate-400 text-sm">Use o formulário acima para registrar ligações, visitas, propostas ou comentários sobre este lead.</p>
                   </div>
                 )}
               </div>

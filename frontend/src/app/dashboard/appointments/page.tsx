@@ -27,7 +27,7 @@ export default function AppointmentsPage() {
         return;
       }
       try {
-        const res = await fetch(`${API}/api/v1/appointments/`, {
+        const res = await fetch(`${API}/api/v1/agendamentos/`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Erro ao carregar agendamentos");
@@ -35,7 +35,7 @@ export default function AppointmentsPage() {
         
         // Busca detalhes dos imóveis para pegar o proprietário
         const enriched = await Promise.all(data.map(async (a: any) => {
-          const pRes = await fetch(`${API}/api/v1/properties/${a.property_id}`);
+          const pRes = await fetch(`${API}/api/v1/imoveis/${a.imovel_id}`);
           if (pRes.ok) {
             const pData = await pRes.json();
             return { ...a, property: pData };
@@ -56,13 +56,13 @@ export default function AppointmentsPage() {
   const handleStatusChange = async (id: number, newStatus: string) => {
     const token = localStorage.getItem("bai_token");
     try {
-      const res = await fetch(`${API}/api/v1/appointments/${id}/status?status=${newStatus}`, {
+      const res = await fetch(`${API}/api/v1/agendamentos/${id}/status?situacao=${newStatus}`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.ok) {
-        setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
-        if (newStatus === 'completed') {
+        setAppointments(prev => prev.map(a => a.id === id ? { ...a, situacao: newStatus } : a));
+        if (newStatus === 'realizado') {
             const appt = appointments.find(a => a.id === id);
             setFeedbackAppt(appt);
             setFeedbackText("");
@@ -78,7 +78,7 @@ export default function AppointmentsPage() {
     setIsSubmittingFeedback(true);
     const token = localStorage.getItem("bai_token");
     try {
-      const res = await fetch(`${API}/api/v1/appointments/${feedbackAppt.id}/feedback?feedback=${encodeURIComponent(feedbackText)}`, {
+      const res = await fetch(`${API}/api/v1/agendamentos/${feedbackAppt.id}/feedback?feedback=${encodeURIComponent(feedbackText)}`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -94,20 +94,20 @@ export default function AppointmentsPage() {
   };
 
   const filteredAppointments = appointments.filter(a => {
-    if (activeTab === "upcoming") return a.status === 'pending' || a.status === 'confirmed';
-    return a.status === 'completed' || a.status === 'cancelled';
+    if (activeTab === "upcoming") return a.situacao === 'pendente' || a.situacao === 'confirmado';
+    return a.situacao === 'realizado' || a.situacao === 'cancelado';
   }).sort((a, b) => {
-    const dateA = new Date(a.visit_date).getTime();
-    const dateB = new Date(b.visit_date).getTime();
+    const dateA = new Date(a.data_visita).getTime();
+    const dateB = new Date(b.data_visita).getTime();
     return activeTab === "upcoming" ? dateA - dateB : dateB - dateA;
   });
 
   const getStatusDisplay = (status: string) => {
     switch(status) {
-      case 'pending': return { label: 'Pendente', class: 'bg-amber-100 text-amber-700', icon: '⏳' };
-      case 'confirmed': return { label: 'Confirmada', class: 'bg-emerald-100 text-emerald-700', icon: '✅' };
-      case 'completed': return { label: 'Realizada', class: 'bg-blue-100 text-blue-700', icon: '🏁' };
-      case 'cancelled': return { label: 'Cancelada', class: 'bg-red-100 text-red-700', icon: '❌' };
+      case 'pendente': return { label: 'Pendente', class: 'bg-amber-100 text-amber-700', icon: '⏳' };
+      case 'confirmado': return { label: 'Confirmada', class: 'bg-emerald-100 text-emerald-700', icon: '✅' };
+      case 'realizado': return { label: 'Realizada', class: 'bg-blue-100 text-blue-700', icon: '🏁' };
+      case 'cancelado': return { label: 'Cancelada', class: 'bg-red-100 text-red-700', icon: '❌' };
       default: return { label: status, class: 'bg-slate-100 text-slate-700', icon: '•' };
     }
   };
@@ -160,14 +160,14 @@ export default function AppointmentsPage() {
       ) : (
         <div className="grid md:grid-cols-2 gap-8">
           {filteredAppointments.map((appt) => {
-            const status = getStatusDisplay(appt.status);
+            const status = getStatusDisplay(appt.situacao);
             return (
               <div key={appt.id} className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden hover:shadow-xl transition-all group flex flex-col">
                 {/* Top Section: Property Info */}
                 <div className="p-8 flex gap-6 border-b border-slate-50">
                   <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
                     <img 
-                      src={appt.property?.image_url || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80"} 
+                      src={appt.property?.url_imagem || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80"}
                       alt="" 
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -179,11 +179,11 @@ export default function AppointmentsPage() {
                       </span>
                       <span className="text-[10px] font-bold text-slate-400">#{appt.id}</span>
                     </div>
-                    <Link href={`/properties/${appt.property_id}`} className="block font-black text-slate-900 truncate hover:text-blue-600 transition">
-                      {appt.property?.title || `Imóvel #${appt.property_id}`}
+                    <Link href={`/properties/${appt.imovel_id}`} className="block font-black text-slate-900 truncate hover:text-blue-600 transition">
+                      {appt.property?.titulo || `Imóvel #${appt.imovel_id}`}
                     </Link>
                     <p className="text-xs text-slate-400 font-medium">
-                      📍 {appt.property?.neighborhood || 'Bairro'}, {appt.property?.city || 'Cidade'}
+                      📍 {appt.property?.bairro || 'Bairro'}, {appt.property?.cidade || 'Cidade'}
                     </p>
                   </div>
                 </div>
@@ -194,29 +194,29 @@ export default function AppointmentsPage() {
                     <div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-xs">Data e Hora</div>
                       <div className="text-sm font-bold text-slate-900">
-                        {new Date(appt.visit_date).toLocaleString('pt-BR', { dateStyle: 'long' })}
+                        {new Date(appt.data_visita).toLocaleString('pt-BR', { dateStyle: 'long' })}
                       </div>
                       <div className="text-xs font-bold text-blue-600">
-                         às {new Date(appt.visit_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}h
+                         às {new Date(appt.data_visita).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}h
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 text-xs">Comprador</div>
-                      <div className="text-sm font-bold text-slate-900 truncate">{appt.visitor_name}</div>
-                      <a 
-                        href={`https://wa.me/55${appt.visitor_phone.replace(/\D/g, '')}`} 
-                        target="_blank" 
+                      <div className="text-sm font-bold text-slate-900 truncate">{appt.nome_visitante}</div>
+                      <a
+                        href={`https://wa.me/55${appt.telefone_visitante.replace(/\D/g, '')}`}
+                        target="_blank"
                         className="text-xs font-bold text-emerald-600 flex items-center gap-1 hover:underline"
                       >
-                        📱 {appt.visitor_phone}
+                        📱 {appt.telefone_visitante}
                       </a>
                     </div>
                   </div>
 
-                  {appt.notes && (
+                  {appt.observacoes && (
                     <div className="bg-slate-50 p-4 rounded-2xl mb-4 border border-slate-100">
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nota do Comprador</div>
-                      <p className="text-xs text-slate-600 italic">"{appt.notes}"</p>
+                      <p className="text-xs text-slate-600 italic">"{appt.observacoes}"</p>
                     </div>
                   )}
 
@@ -231,43 +231,43 @@ export default function AppointmentsPage() {
                 {/* Bottom Section: Actions */}
                 <div className="px-8 py-6 bg-slate-50 flex items-center justify-between gap-4">
                   <div className="flex-1">
-                    {appt.property?.actual_owner && (
-                      <a 
-                        href={`https://wa.me/55${appt.property.actual_owner.phone?.replace(/\D/g, '')}?text=Olá ${appt.property.actual_owner.name}, confirmamos a visita para o dia ${new Date(appt.visit_date).toLocaleDateString('pt-BR')} às ${new Date(appt.visit_date).getHours()}h.`}
+                    {appt.property?.corretor && (
+                      <a
+                        href={`https://wa.me/55${appt.property.corretor.telefone?.replace(/\D/g, '')}?text=Olá ${appt.property.corretor.nome}, confirmamos a visita para o dia ${new Date(appt.data_visita).toLocaleDateString('pt-BR')} às ${new Date(appt.data_visita).getHours()}h.`}
                         target="_blank"
                         className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest transition flex items-center gap-1"
                       >
-                         Proprietário: {appt.property.actual_owner.name.split(' ')[0]} ⭢
+                         Responsável: {appt.property.corretor.nome?.split(' ')[0]} ⭢
                       </a>
                     )}
                   </div>
                   
                   <div className="flex gap-2">
-                    {appt.status === 'pending' && (
+                    {appt.situacao === 'pendente' && (
                       <>
-                        <button 
-                          onClick={() => handleStatusChange(appt.id, 'confirmed')} 
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'confirmado')}
                           className="px-4 py-2 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-200"
                         >
                           Confirmar
                         </button>
-                        <button 
-                          onClick={() => handleStatusChange(appt.id, 'cancelled')} 
+                        <button
+                          onClick={() => handleStatusChange(appt.id, 'cancelado')}
                           className="px-4 py-2 bg-white text-red-600 text-xs font-black rounded-xl border border-red-100 hover:bg-red-50 transition"
                         >
                           Recusar
                         </button>
                       </>
                     )}
-                    {appt.status === 'confirmed' && (
-                      <button 
-                        onClick={() => handleStatusChange(appt.id, 'completed')} 
+                    {appt.situacao === 'confirmado' && (
+                      <button
+                        onClick={() => handleStatusChange(appt.id, 'realizado')}
                         className="px-4 py-2 bg-blue-600 text-white text-xs font-black rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200"
                       >
                         Concluída
                       </button>
                     )}
-                    {appt.status === 'completed' && !appt.feedback_visita && (
+                    {appt.situacao === 'realizado' && !appt.feedback_visita && (
                       <button 
                         onClick={() => { setFeedbackAppt(appt); setFeedbackText(""); }}
                         className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-black rounded-xl border border-blue-100 hover:bg-blue-100 transition"
@@ -289,7 +289,7 @@ export default function AppointmentsPage() {
           <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl mb-6">📝</div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">Relato da Visita</h2>
-            <p className="text-slate-500 mb-8 text-sm font-medium">Como foi o encontro com <span className="text-slate-900 font-bold">{feedbackAppt.visitor_name}</span>? Descreva as impressões do cliente.</p>
+            <p className="text-slate-500 mb-8 text-sm font-medium">Como foi o encontro com <span className="text-slate-900 font-bold">{feedbackAppt.nome_visitante}</span>? Descreva as impressões do cliente.</p>
             
             <textarea 
               autoFocus

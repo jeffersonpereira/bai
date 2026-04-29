@@ -26,6 +26,15 @@ db_url = os.getenv("DATABASE_URL_UNPOOLED", settings.DATABASE_URL)
 config.set_main_option("sqlalchemy.url", db_url)
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name == "spatial_ref_sys":
+        return False
+    if type_ == "column" and name == "localizacao":
+        return False
+    if type_ == "index" and name == "ix_imoveis_localizacao_gist":
+        return False
+    return True
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -34,6 +43,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -50,6 +60,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=include_object,
         )
         with context.begin_transaction():
             context.run_migrations()

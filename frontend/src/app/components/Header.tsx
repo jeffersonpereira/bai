@@ -121,7 +121,7 @@ export default function Header() {
     setIsScraping(true);
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001"}/api/v1/properties/scrape`,
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001"}/api/v1/imoveis/scrape`,
         { method: "POST", headers: { Authorization: `Bearer ${token ?? ""}` } }
       );
     } finally {
@@ -248,6 +248,7 @@ export default function Header() {
 
                       <MenuLink href="/favorites"              icon={Icons.heart}    onClick={closeAll}>Meus Favoritos</MenuLink>
                       <MenuLink href="/dashboard/buyer/profile" icon={Icons.target}   onClick={closeAll}>Perfil de Busca</MenuLink>
+                      <MenuLink href="/dashboard/seller"        icon={Icons.home}     onClick={closeAll}>Meus Anúncios</MenuLink>
 
                       {["agency", "broker", "admin"].includes(user.role) && (
                         <>
@@ -255,8 +256,9 @@ export default function Header() {
                           <p className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Acesso Restrito</p>
                           <MenuLink href="/dashboard/agency" icon={Icons.chart}    onClick={closeAll}>Central de Comando</MenuLink>
                           <MenuLink href="/dashboard"        icon={Icons.home}     onClick={closeAll}>Meus Imóveis</MenuLink>
-                          <MenuLink href="/dashboard/crm"    icon={Icons.users}    onClick={closeAll}>CRM e Leads</MenuLink>
-                          <MenuLink href="/documents"        icon={Icons.settings} onClick={closeAll}>Documentos</MenuLink>
+                          <MenuLink href="/dashboard/crm"        icon={Icons.users}    onClick={closeAll}>CRM e Leads</MenuLink>
+                          <MenuLink href="/dashboard/comissoes" icon={Icons.chart}    onClick={closeAll}>Comissões</MenuLink>
+                          <MenuLink href="/documents"            icon={Icons.settings} onClick={closeAll}>Documentos</MenuLink>
                         </>
                       )}
 
@@ -348,6 +350,7 @@ export default function Header() {
                   </div>
                   <MobileLink href="/favorites"               onClick={closeAll}>Meus Favoritos</MobileLink>
                   <MobileLink href="/dashboard/buyer/profile" onClick={closeAll}>Perfil de Busca</MobileLink>
+                  <MobileLink href="/dashboard/seller"        onClick={closeAll}>Meus Anúncios</MobileLink>
 
                   {["agency", "broker", "admin"].includes(user.role) && (
                     <>

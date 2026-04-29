@@ -1,11 +1,11 @@
 import Link from "next/link";
-import PropertyCard from "./components/PropertyCard";
+import CardImovel from "./components/CardImovel";
 import EmptyState from "./components/ui/EmptyState";
 import Script from "next/script";
 
 async function getLatestProperties() {
   try {
-    const url = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001"}/api/v1/properties/?limit=6`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001"}/api/v1/imoveis/?limit=6`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
@@ -493,7 +493,7 @@ export default async function Home() {
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestProperties.map((imovel: any) => (
-                <PropertyCard key={imovel.id} imovel={imovel} />
+                <CardImovel key={imovel.id} imovel={imovel} />
               ))}
             </div>
           )}

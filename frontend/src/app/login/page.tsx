@@ -21,9 +21,9 @@ function EyeIcon({ open }: { open: boolean }) {
 
 // ─── Tipos de perfil disponíveis no cadastro ──────────────────────
 const profileOptions = [
-  { value: "user",   label: "Comprador / Proprietário", desc: "Busque, salve imóveis ou anuncie os seus de forma autônoma" },
-  { value: "broker", label: "Corretor Autônomo",      desc: "Gerencie seus clientes e mandatos" },
-  { value: "agency", label: "Imobiliária",            desc: "Controle toda sua equipe" },
+  { value: "comprador",   label: "Comprador / Proprietário", desc: "Busque, salve imóveis ou anuncie os seus de forma autônoma" },
+  { value: "corretor",    label: "Corretor Autônomo",        desc: "Gerencie seus clientes e mandatos" },
+  { value: "imobiliaria", label: "Imobiliária",              desc: "Controle toda sua equipe" },
 ];
 
 import { useAuth } from "@/app/context/AuthContext";
@@ -38,7 +38,7 @@ function LoginContent() {
   const [email,        setEmail]        = useState("");
   const [password,     setPassword]     = useState("");
   const [name,         setName]         = useState("");
-  const [role,         setRole]         = useState("user");
+  const [role,         setRole]         = useState("comprador");
   const [showPassword, setShowPassword] = useState(false);
   const [error,        setError]        = useState("");
   const [submitting,   setSubmitting]   = useState(false);
@@ -79,7 +79,7 @@ function LoginContent() {
           : { "Content-Type": "application/json" },
         body: isLogin
           ? new URLSearchParams({ username: email, password })
-          : JSON.stringify({ email, password, name, role }),
+          : JSON.stringify({ email, password, nome: name, perfil: role }),
       });
 
       if (!res.ok) {

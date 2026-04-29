@@ -12,32 +12,32 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
 interface Property {
   id: number;
-  title: string;
-  price: number;
-  city: string | null;
-  neighborhood: string | null;
+  titulo: string;
+  preco: number;
+  cidade: string | null;
+  bairro: string | null;
   area: number | null;
-  bedrooms: number | null;
-  bathrooms: number | null;
-  garage_spaces: number | null;
-  description: string | null;
-  full_address: string | null;
-  image_url: string | null;
-  source: string | null;
-  source_url: string | null;
-  listing_type: string | null;
-  property_type: string | null;
-  created_at: string;
-  owner_id: number | null;
-  owner: { name: string; role: string; phone: string | null; creci: string | null } | null;
-  media: { media_type: string; url: string }[];
-  market_score?: number | null;
+  quartos: number | null;
+  banheiros: number | null;
+  vagas: number | null;
+  descricao: string | null;
+  endereco_completo: string | null;
+  url_imagem: string | null;
+  origem: string | null;
+  url_origem: string | null;
+  tipo_oferta: string | null;
+  tipo_imovel: string | null;
+  criado_em: string;
+  corretor_id: number | null;
+  corretor: { nome: string; perfil: string; telefone: string | null; creci: string | null } | null;
+  midias: { tipo_midia: string; url: string }[];
+  pontuacao_mercado?: number | null;
 }
 
 interface VisitSlot {
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
+  dia_semana: number;
+  hora_inicio: string;
+  hora_fim: string;
 }
 
 // ─── Modal wrapper ────────────────────────────────────────────────────────────
@@ -95,17 +95,17 @@ function VisitModal({
     setSubmitting(true);
     try {
       const token = localStorage.getItem("bai_token");
-      const res = await fetch(`${API}/api/v1/appointments/`, {
+      const res = await fetch(`${API}/api/v1/agendamentos/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          property_id: Number(propertyId),
-          visitor_name: form.visitor_name,
-          visitor_phone: form.visitor_phone,
-          visit_date: new Date(form.visit_date).toISOString(),
+          imovel_id: Number(propertyId),
+          nome_visitante: form.visitor_name,
+          telefone_visitante: form.visitor_phone,
+          data_visita: new Date(form.visit_date).toISOString(),
         }),
       });
       if (!res.ok) throw new Error((await res.json()).detail ?? "Erro ao agendar");
@@ -137,7 +137,7 @@ function VisitModal({
                 <div className="flex flex-wrap gap-2">
                   {availability.map((a, i) => (
                     <span key={i} className="bg-white px-3 py-1.5 rounded-lg text-[10px] font-bold text-blue-700 border border-blue-100">
-                      {DAY_LABELS[a.day_of_week]}: {a.start_time.slice(0, 5)}h–{a.end_time.slice(0, 5)}h
+                      {DAY_LABELS[a.dia_semana]}: {String(a.hora_inicio).slice(0, 5)}h–{String(a.hora_fim).slice(0, 5)}h
                     </span>
                   ))}
                 </div>
@@ -202,17 +202,17 @@ function ProposalModal({
     try {
       const token = localStorage.getItem("bai_token");
       const body = {
-        property_id: Number(propertyId),
-        proposed_price: Number(form.proposed_price),
-        payment_method: form.payment_method,
-        financing_percentage: form.payment_method !== "avista" ? Number(form.financing_percentage) : null,
-        conditions: form.conditions || null,
-        message: form.message || null,
-        buyer_name: form.buyer_name,
-        buyer_email: form.buyer_email || null,
-        buyer_phone: form.buyer_phone || null,
+        imovel_id: Number(propertyId),
+        valor_ofertado: Number(form.proposed_price),
+        forma_pagamento: form.payment_method,
+        percentual_financiamento: form.payment_method !== "avista" ? Number(form.financing_percentage) : null,
+        condicoes: form.conditions || null,
+        mensagem: form.message || null,
+        nome_comprador: form.buyer_name,
+        email_comprador: form.buyer_email || null,
+        telefone_comprador: form.buyer_phone || null,
       };
-      const res = await fetch(`${API}/api/v1/proposals/`, {
+      const res = await fetch(`${API}/api/v1/propostas/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -379,7 +379,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
   const [error, setError] = useState<string | null>(null);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [currentUser, setCurrentUser] = useState<{ id: number; name: string; email: string; phone: string; role: string; plan_type?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: number; nome: string; email: string; telefone: string; perfil: string; tipo_plano?: string } | null>(null);
   const [availability, setAvailability] = useState<VisitSlot[]>([]);
   const [matchingBuyers, setMatchingBuyers] = useState<{ user_id: number; name: string; email: string; phone: string; match_score: number; profile: { city: string; neighborhood: string; financing_approved: boolean } }[]>([]);
 
@@ -391,8 +391,8 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
     const load = async () => {
       try {
         const [propRes, availRes] = await Promise.all([
-          fetch(`${API}/api/v1/properties/${propertyId}`),
-          fetch(`${API}/api/v1/properties/${propertyId}/availability`),
+          fetch(`${API}/api/v1/imoveis/${propertyId}`),
+          fetch(`${API}/api/v1/imoveis/${propertyId}/availability`),
         ]);
         if (!propRes.ok) throw new Error("Imóvel não encontrado");
         const prop: Property = await propRes.json();
@@ -405,7 +405,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
           if (userRes.ok) {
             const user = await userRes.json();
             setCurrentUser(user);
-            if (["agency", "broker", "admin"].includes(user.role) || prop.owner_id === user.id) {
+            if (["imobiliaria", "corretor", "admin"].includes(user.perfil) || prop.corretor_id === user.id) {
               const buyersRes = await fetch(`${API}/api/v1/match/buyers/${propertyId}`, { headers: { Authorization: `Bearer ${token}` } });
               if (buyersRes.ok) setMatchingBuyers(await buyersRes.json());
             }
@@ -413,7 +413,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
         }
 
         // Registrar visualização silenciosamente
-        fetch(`${API}/api/v1/properties/${propertyId}/view`, { method: "POST" }).catch(() => {});
+        fetch(`${API}/api/v1/imoveis/${propertyId}/view`, { method: "POST" }).catch(() => {});
 
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -429,10 +429,10 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
     if (!token) { router.push("/login"); return; }
     setFavStatus("saving");
     try {
-      const res = await fetch(`${API}/api/v1/favorites/`, {
+      const res = await fetch(`${API}/api/v1/favoritos/`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ property_id: Number(propertyId) }),
+        body: JSON.stringify({ imovel_id: Number(propertyId) }),
       });
       if (!res.ok) throw new Error((await res.json()).detail ?? "Erro");
       setFavStatus("saved");
@@ -471,10 +471,10 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const images = [imovel.image_url, ...(imovel.media?.filter((m) => m.media_type === "image").map((m) => m.url) ?? [])].filter(Boolean) as string[];
-  const videos = imovel.media?.filter((m) => m.media_type === "video").map((m) => m.url) ?? [];
-  const fmtPrice = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(imovel.price);
-  const isBroker = currentUser && ["agency", "broker", "admin"].includes(currentUser.role);
+  const images = [imovel.url_imagem, ...(imovel.midias?.filter((m) => m.tipo_midia === "imagem").map((m) => m.url) ?? [])].filter(Boolean) as string[];
+  const videos = imovel.midias?.filter((m) => m.tipo_midia === "video").map((m) => m.url) ?? [];
+  const fmtPrice = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(imovel.preco);
+  const isBroker = currentUser && ["imobiliaria", "corretor", "admin"].includes(currentUser.perfil);
 
   return (
     <>
@@ -489,29 +489,29 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
           <div className="relative h-[55vh] bg-slate-200">
             <img
               src={images[activeImageIndex] ?? "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80"}
-              alt={imovel.title}
+              alt={imovel.titulo}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
             <div className="absolute bottom-8 left-8 right-8">
               <div className="flex flex-wrap gap-2 mb-3">
-                {imovel.source && (
+                {imovel.origem && (
                   <span className="bg-blue-600 text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                    {imovel.source}
+                    {imovel.origem}
                   </span>
                 )}
-                {imovel.listing_type && (
+                {imovel.tipo_oferta && (
                   <span className="bg-white/20 backdrop-blur text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/30">
-                    {imovel.listing_type === "venda" ? "Venda" : "Aluguel"}
+                    {imovel.tipo_oferta === "venda" ? "Venda" : "Aluguel"}
                   </span>
                 )}
-                {imovel.neighborhood && (
+                {imovel.bairro && (
                   <span className="bg-white/20 backdrop-blur text-white px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/30">
-                    {imovel.neighborhood}
+                    {imovel.bairro}
                   </span>
                 )}
               </div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight leading-tight drop-shadow-lg">{imovel.title}</h1>
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight leading-tight drop-shadow-lg">{imovel.titulo}</h1>
             </div>
           </div>
 
@@ -542,10 +542,10 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     { label: "Área", value: imovel.area ? `${imovel.area}m²` : "—", icon: (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
                     )},
-                    { label: "Quartos", value: imovel.bedrooms ?? "—", icon: (
+                    { label: "Quartos", value: imovel.quartos ?? "—", icon: (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                     )},
-                    { label: "Banheiros", value: imovel.bathrooms ?? "—", icon: (
+                    { label: "Banheiros", value: imovel.banheiros ?? "—", icon: (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     )},
                   ].map(({ label, value, icon }) => (
@@ -564,12 +564,12 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     Sobre este imóvel
                   </h2>
                   <p className="text-slate-600 leading-relaxed whitespace-pre-line">
-                    {imovel.description ?? "Nenhuma descrição disponível para este anúncio."}
+                    {imovel.descricao ?? "Nenhuma descrição disponível para este anúncio."}
                   </p>
                 </div>
 
                 {/* Map */}
-                {imovel.full_address && (
+                {imovel.endereco_completo && (
                   <div className="pt-8 border-t border-slate-100">
                     <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
                       <span className="w-1 h-5 bg-red-500 rounded-full" />
@@ -580,26 +580,26 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                         width="100%"
                         height="100%"
                         style={{ border: 0 }}
-                        src={`https://maps.google.com/maps?q=${encodeURIComponent(imovel.full_address)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(imovel.endereco_completo!)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                         allowFullScreen
                         title="Mapa"
                       />
                       <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 max-w-xs truncate">
-                        {imovel.full_address}
+                        {imovel.endereco_completo}
                       </div>
                     </div>
                   </div>
                 )}
 
                 {/* Analytics / Market Score (Freemium Paywall) */}
-                {(isBroker || (currentUser && imovel.owner_id === currentUser.id)) && (
+                {(isBroker || (currentUser && imovel.corretor_id === currentUser.id)) && (
                   <div className="pt-8 border-t border-slate-100">
                     <h2 className="text-lg font-black text-slate-900 mb-4 flex items-center gap-2">
                        <span className="w-1 h-5 bg-purple-600 rounded-full" />
                        Análise de Inteligência (Market Score)
                     </h2>
                     
-                    {(!currentUser?.plan_type || currentUser.plan_type === 'free') ? (
+                    {(!currentUser?.tipo_plano || currentUser.tipo_plano === 'gratuito') ? (
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 relative overflow-hidden">
                         <div className="blur-md pointer-events-none select-none opacity-40">
                           <p className="font-bold text-slate-700">Market Score: 85/100</p>
@@ -620,7 +620,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     ) : (
                       <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100 shadow-sm">
                         <div className="flex items-end gap-3 mb-2">
-                          <div className="text-4xl font-black text-purple-700">{imovel.market_score || 'N/A'}</div>
+                          <div className="text-4xl font-black text-purple-700">{imovel.pontuacao_mercado || 'N/A'}</div>
                           <div className="text-sm font-bold text-purple-600 uppercase tracking-widest pb-1">Pontuação de Mercado</div>
                         </div>
                         <p className="text-purple-800 text-sm font-medium leading-relaxed">
@@ -646,10 +646,10 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                           </div>
                           <div>
                             <div className="font-bold text-slate-800 text-sm">
-                              {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][a.day_of_week]}
+                              {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][a.dia_semana]}
                             </div>
                             <div className="text-[10px] text-blue-600 font-bold">
-                              {a.start_time.slice(0,5)}–{a.end_time.slice(0,5)}h
+                              {String(a.hora_inicio).slice(0,5)}–{String(a.hora_fim).slice(0,5)}h
                             </div>
                           </div>
                         </div>
@@ -722,8 +722,8 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                 )}
 
                 <div className="pt-6 border-t border-slate-100 text-xs text-slate-400 font-medium">
-                  Publicado em {new Date(imovel.created_at).toLocaleDateString("pt-BR")}
-                  {imovel.source && <> via <strong>{imovel.source}</strong></>}
+                  Publicado em {new Date(imovel.criado_em).toLocaleDateString("pt-BR")}
+                  {imovel.origem && <> via <strong>{imovel.origem}</strong></>}
                 </div>
               </div>
 
@@ -736,7 +736,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     {/* Price */}
                     <div>
                       <div className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">
-                        {imovel.listing_type === "aluguel" ? "Aluguel mensal" : "Valor do imóvel"}
+                        {imovel.tipo_oferta === "aluguel" ? "Aluguel mensal" : "Valor do imóvel"}
                       </div>
                       <div className="text-3xl font-black tracking-tight">{fmtPrice}</div>
                     </div>
@@ -772,23 +772,23 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     </div>
 
                     {/* Owner info */}
-                    {imovel.owner ? (
+                    {imovel.corretor ? (
                       <div className="border-t border-white/10 pt-5 space-y-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-sm font-black shrink-0">
-                            {imovel.owner.name?.[0] ?? "C"}
+                            {imovel.corretor.nome?.[0] ?? "C"}
                           </div>
                           <div>
-                            <div className="font-bold text-sm leading-tight">{imovel.owner.name}</div>
+                            <div className="font-bold text-sm leading-tight">{imovel.corretor.nome}</div>
                             <div className="text-[10px] uppercase font-bold text-blue-400 tracking-widest">
-                              {imovel.owner.role === "broker" ? "Corretor" : imovel.owner.role === "agency" ? "Imobiliária" : "Responsável"}
-                              {imovel.owner.creci && ` · CRECI ${imovel.owner.creci}`}
+                              {imovel.corretor.perfil === "corretor" ? "Corretor" : imovel.corretor.perfil === "imobiliaria" ? "Imobiliária" : "Responsável"}
+                              {imovel.corretor.creci && ` · CRECI ${imovel.corretor.creci}`}
                             </div>
                           </div>
                         </div>
-                        {imovel.owner.phone && (
+                        {imovel.corretor.telefone && (
                           <a
-                            href={`https://wa.me/55${imovel.owner.phone.replace(/\D/g, "")}`}
+                            href={`https://wa.me/55${imovel.corretor.telefone.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noreferrer"
                             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-900/20"
@@ -798,13 +798,13 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                           </a>
                         )}
                       </div>
-                    ) : imovel.source_url && (
+                    ) : imovel.url_origem && (
                       <div className="border-t border-white/10 pt-5">
                         <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                          Imóvel indexado de <span className="text-blue-400 font-bold">{imovel.source}</span>. Nosso time pode ajudá-lo a negociar com segurança.
+                          Imóvel indexado de <span className="text-blue-400 font-bold">{imovel.origem}</span>. Nosso time pode ajudá-lo a negociar com segurança.
                         </p>
                         <a
-                          href={imovel.source_url}
+                          href={imovel.url_origem}
                           target="_blank"
                           rel="noreferrer"
                           className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold py-3 rounded-xl transition flex items-center justify-center gap-2"
@@ -827,18 +827,18 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
         <VisitModal
           propertyId={propertyId}
           availability={availability}
-          defaultName={currentUser?.name ?? ""}
-          defaultPhone={currentUser?.phone ?? ""}
+          defaultName={currentUser?.nome ?? ""}
+          defaultPhone={currentUser?.telefone ?? ""}
           onClose={() => setShowVisitModal(false)}
         />
       )}
       {showProposalModal && (
         <ProposalModal
           propertyId={propertyId}
-          propertyPrice={imovel.price}
-          defaultName={currentUser?.name ?? ""}
+          propertyPrice={imovel.preco}
+          defaultName={currentUser?.nome ?? ""}
           defaultEmail={currentUser?.email ?? ""}
-          defaultPhone={currentUser?.phone ?? ""}
+          defaultPhone={currentUser?.telefone ?? ""}
           onClose={() => setShowProposalModal(false)}
         />
       )}

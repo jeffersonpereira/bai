@@ -25,6 +25,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
+const PERFIL_TO_ROLE: Record<string, string> = {
+  comprador:   "user",
+  corretor:    "broker",
+  imobiliaria: "agency",
+  admin:       "admin",
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -38,7 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (response.ok) {
-        const userData = await response.json();
+        const raw = await response.json();
+        const userData: User = {
+          id:        raw.id,
+          name:      raw.nome ?? raw.name ?? "",
+          email:     raw.email,
+          role:      PERFIL_TO_ROLE[raw.perfil] ?? raw.perfil ?? "user",
+          parent_id: raw.imobiliaria_id ?? raw.parent_id,
+        };
         setUser(userData);
         return userData;
       } else {

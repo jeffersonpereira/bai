@@ -14,7 +14,7 @@ async function getProperties(params: any) {
   });
 
   try {
-    const res = await fetch(`${API}/api/v1/properties/?${query.toString()}`, { cache: "no-store" });
+    const res = await fetch(`${API}/api/v1/imoveis/?${query.toString()}`, { cache: "no-store" });
     if (!res.ok) return { items: [], total: 0 };
     return res.json();
   } catch {
@@ -24,7 +24,7 @@ async function getProperties(params: any) {
 
 async function getLocations() {
   try {
-    const res = await fetch(`${API}/api/v1/properties/locations`, { cache: "no-store" });
+    const res = await fetch(`${API}/api/v1/imoveis/locations`, { cache: "no-store" });
     if (!res.ok) return {};
     return res.json();
   } catch {

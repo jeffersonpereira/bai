@@ -15,10 +15,10 @@ class WhatsAppSendRequest(BaseModel):
 
 class WhatsAppMessageResponse(BaseModel):
     id: int
-    chat_jid: str
-    direction: str
-    body: str
-    timestamp: datetime
+    jid_conversa: str
+    direcao: str
+    conteudo: str
+    enviado_em: datetime
 
     model_config = {"from_attributes": True}
 

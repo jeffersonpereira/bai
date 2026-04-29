@@ -1,30 +1,30 @@
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Numeric, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 
 class Comissao(Base):
-    """Gestão de comissões pagas a corretores e parceiros (spec: gestao_comissoes)."""
     __tablename__ = "comissoes"
 
     id = Column(Integer, primary_key=True, index=True)
-    proposal_id = Column(Integer, ForeignKey("proposals.id"), nullable=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id"), nullable=False, index=True)
-    corretor_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    agency_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    proposta_id = Column(Integer, ForeignKey("propostas.id"), nullable=True, index=True)
+    imovel_id = Column(Integer, ForeignKey("imoveis.id"), nullable=False, index=True)
+    corretor_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False, index=True)
+    imobiliaria_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
 
-    valor_imovel = Column(Float, nullable=False)
-    percentual = Column(Float, nullable=False)  # Ex: 6.0
-    valor_comissao = Column(Float, nullable=False)  # valor_imovel * percentual / 100
+    valor_imovel = Column(Numeric(15, 2), nullable=False)
+    percentual = Column(Numeric(5, 4), nullable=False)
+    valor_comissao = Column(Numeric(15, 2), nullable=False)
 
     # pendente | pago | cancelado
-    status_pagamento = Column(String, default="pendente", index=True)
+    situacao_pagamento = Column(String, default="pendente", index=True)
     observacoes = Column(String, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    paid_at = Column(DateTime(timezone=True), nullable=True)
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), onupdate=func.now())
+    pago_em = Column(DateTime(timezone=True), nullable=True)
 
-    proposal = relationship("Proposal", foreign_keys=[proposal_id])
-    property = relationship("Property", foreign_keys=[property_id])
-    corretor = relationship("User", foreign_keys=[corretor_id])
-    agency = relationship("User", foreign_keys=[agency_id])
+    proposta = relationship("Proposta", foreign_keys=[proposta_id])
+    imovel = relationship("Imovel", foreign_keys=[imovel_id])
+    corretor = relationship("Usuario", foreign_keys=[corretor_id])
+    imobiliaria = relationship("Usuario", foreign_keys=[imobiliaria_id])

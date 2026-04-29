@@ -3,31 +3,31 @@ from typing import List
 
 
 class BuyerProfileBase(BaseModel):
-    name: str = "Meu Perfil"
-    min_price: float | None = None
-    max_price: float | None = None
-    city: str | None = None
-    neighborhood: str | None = None
-    property_type: str | None = None
-    listing_type: str | None = "venda"
-    min_bedrooms: int | None = None
-    min_bathrooms: int | None = None
-    min_garage_spaces: int | None = None
-    financing_approved: bool | None = False
+    nome_perfil: str = "Meu Perfil"
+    preco_minimo: float | None = None
+    preco_maximo: float | None = None
+    cidade: str | None = None
+    bairro: str | None = None
+    tipo_imovel: str | None = None
+    tipo_oferta: str | None = "venda"
+    quartos_minimo: int | None = None
+    banheiros_minimo: int | None = None
+    vagas_minimo: int | None = None
+    financiamento_aprovado: bool | None = False
 
 
 class BuyerProfileResponse(BuyerProfileBase):
     id: int
-    user_id: int
+    usuario_id: int
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserMatchResponse(BaseModel):
-    user_id: int
-    name: str | None = None
+    usuario_id: int
+    nome: str | None = None
     email: str | None = None
-    phone: str | None = None
+    telefone: str | None = None
     match_score: int
     profile: BuyerProfileResponse
 
@@ -35,26 +35,24 @@ class UserMatchResponse(BaseModel):
 
 
 class PropertyMatchSummary(BaseModel):
-    """Summary of a property used inside scored match results."""
     id: int
-    title: str
-    price: float
-    city: str | None = None
-    neighborhood: str | None = None
-    property_type: str | None = None
-    listing_type: str | None = None
-    bedrooms: int | None = None
-    bathrooms: int | None = None
-    garage_spaces: int | None = None
+    titulo: str
+    preco: float
+    cidade: str | None = None
+    bairro: str | None = None
+    tipo_imovel: str | None = None
+    tipo_oferta: str | None = None
+    quartos: int | None = None
+    banheiros: int | None = None
+    vagas: int | None = None
     area: float | None = None
-    image_url: str | None = None
+    url_imagem: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ScoredPropertyMatch(BaseModel):
-    """A property with its match score and breakdown against a buyer profile."""
     property: PropertyMatchSummary
-    score: int                         # 0–100 percentage
-    matched_criteria: List[str]        # e.g. ["Preço", "Bairro", "Quartos"]
-    unmatched_criteria: List[str]      # e.g. ["Garagem", "Banheiros"]
+    score: int
+    matched_criteria: List[str]
+    unmatched_criteria: List[str]

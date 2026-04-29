@@ -70,7 +70,7 @@ export default function DocumentsPage() {
       const params = new URLSearchParams({ limit: "50", skip: "0" });
       if (filterType) params.set("doc_type", filterType);
       if (filterStatus) params.set("status", filterStatus);
-      const res = await fetch(`${API}/api/v1/documents/?${params}`, {
+      const res = await fetch(`${API}/api/v1/documentos/?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) { router.push("/login"); return; }
@@ -116,7 +116,7 @@ export default function DocumentsPage() {
         file_url: form.file_url || undefined,
         notes: form.notes || undefined,
       };
-      const url = editing ? `${API}/api/v1/documents/${editing.id}` : `${API}/api/v1/documents/`;
+      const url = editing ? `${API}/api/v1/documentos/${editing.id}` : `${API}/api/v1/documentos/`;
       const method = editing ? "PATCH" : "POST";
       const res = await fetch(url, {
         method,
@@ -138,7 +138,7 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm("Remover este documento?")) return;
-    await fetch(`${API}/api/v1/documents/${id}`, {
+    await fetch(`${API}/api/v1/documentos/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });

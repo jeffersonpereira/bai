@@ -2,34 +2,34 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, distinct
 from fastapi import HTTPException
 
-from app.models.owner import Owner
+from app.models.proprietario import Proprietario
 from app.models.lead import Lead
-from app.models.mandate import Mandate
-from app.models.user import User
-from app.models.activity import LeadActivity
-from app.models.property import Property
-from app.models.appointment import Appointment
-from app.models.proposal import Proposal
-from app.models.favorite import Favorite
-from app.schemas.owner import OwnerCreate
-from app.schemas.lead import LeadCreate, ActivityCreate
+from app.models.mandato import Mandato
+from app.models.usuario import Usuario
+from app.models.atividade import AtividadeLead
+from app.models.imovel import Imovel
+from app.models.agendamento import Agendamento
+from app.models.proposta import Proposta
+from app.models.favorito import Favorito
+from app.schemas.proprietario import ProprietarioCriar
+from app.schemas.lead import LeadCriar, ActivityCreate
 
 
 # --- OWNERS ---
 
-def create_owner(db: Session, owner_in: OwnerCreate, broker_id: int) -> Owner:
-    db_owner = Owner(**owner_in.model_dump(), broker_id=broker_id)
+def create_owner(db: Session, owner_in: ProprietarioCriar, corretor_id: int) -> Proprietario:
+    db_owner = Proprietario(**owner_in.model_dump(), corretor_id=corretor_id)
     db.add(db_owner)
     db.commit()
     db.refresh(db_owner)
     return db_owner
 
 
-def update_owner(db: Session, owner_id: int, owner_in: OwnerCreate, current_user: User) -> Owner:
-    db_owner = db.query(Owner).filter(Owner.id == owner_id).first()
+def update_owner(db: Session, owner_id: int, owner_in: ProprietarioCriar, current_user: Usuario) -> Proprietario:
+    db_owner = db.query(Proprietario).filter(Proprietario.id == owner_id).first()
     if not db_owner:
         raise HTTPException(status_code=404, detail="Proprietário não encontrado")
-    if db_owner.broker_id != current_user.id and current_user.role != "agency":
+    if db_owner.corretor_id != current_user.id and current_user.perfil != "imobiliaria":
         raise HTTPException(status_code=403, detail="Acesso negado")
 
     for key, value in owner_in.model_dump(exclude_unset=True).items():
@@ -39,32 +39,31 @@ def update_owner(db: Session, owner_id: int, owner_in: OwnerCreate, current_user
     return db_owner
 
 
-def get_owners(db: Session, current_user: User, skip: int, limit: int, search: str | None) -> dict:
-    query = db.query(Owner)
-    if current_user.role == "agency":
-        broker_ids = [b.id for b in current_user.brokers]
+def get_owners(db: Session, current_user: Usuario, skip: int, limit: int, search: str | None) -> dict:
+    query = db.query(Proprietario)
+    if current_user.perfil == "imobiliaria":
+        broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
-        query = query.filter(Owner.broker_id.in_(broker_ids))
+        query = query.filter(Proprietario.corretor_id.in_(broker_ids))
     else:
-        query = query.filter(Owner.broker_id == current_user.id)
+        query = query.filter(Proprietario.corretor_id == current_user.id)
 
     if search:
         query = query.filter(
             or_(
-                Owner.name.ilike(f"%{search}%"),
-                Owner.email.ilike(f"%{search}%"),
-                Owner.document.ilike(f"%{search}%"),
+                Proprietario.nome.ilike(f"%{search}%"),
+                Proprietario.email.ilike(f"%{search}%"),
+                Proprietario.documento.ilike(f"%{search}%"),
             )
         )
 
     total = query.count()
-    owners = query.order_by(Owner.created_at.desc()).offset(skip).limit(limit).all()
+    owners = query.order_by(Proprietario.criado_em.desc()).offset(skip).limit(limit).all()
 
-    # Enriquecer com nome do broker sem mutar o ORM object
     items = []
     for o in owners:
         item = o.__dict__.copy()
-        item["broker_name"] = o.broker.name if o.broker else "Desconhecido"
+        item["broker_name"] = o.corretor.nome if o.corretor else "Desconhecido"
         items.append(item)
 
     return {
@@ -75,25 +74,24 @@ def get_owners(db: Session, current_user: User, skip: int, limit: int, search: s
     }
 
 
-def get_owner_portfolio(db: Session, owner_id: int, current_user: User) -> dict:
-    """Retorna o portfólio completo de um proprietário com stats agregados em queries únicas."""
-    owner = db.query(Owner).filter(Owner.id == owner_id).first()
+def get_owner_portfolio(db: Session, owner_id: int, current_user: Usuario) -> dict:
+    owner = db.query(Proprietario).filter(Proprietario.id == owner_id).first()
     if not owner:
         raise HTTPException(status_code=404, detail="Proprietário não encontrado")
 
     broker_ids = [current_user.id]
-    if current_user.role == "agency":
-        broker_ids += [b.id for b in current_user.brokers]
-    if owner.broker_id not in broker_ids:
+    if current_user.perfil == "imobiliaria":
+        broker_ids += [b.id for b in current_user.corretores]
+    if owner.corretor_id not in broker_ids:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
-    properties = db.query(Property).filter(Property.actual_owner_id == owner_id).all()
+    properties = db.query(Imovel).filter(Imovel.proprietario_id == owner_id).all()
     if not properties:
-        broker = db.query(User).filter(User.id == owner.broker_id).first()
+        broker = db.query(Usuario).filter(Usuario.id == owner.corretor_id).first()
         return {
-            "owner": {"id": owner.id, "name": owner.name, "email": owner.email,
-                      "phone": owner.phone, "notes": owner.notes},
-            "broker": {"name": broker.name if broker else None, "phone": broker.phone if broker else None,
+            "owner": {"id": owner.id, "nome": owner.nome, "email": owner.email,
+                      "telefone": owner.telefone, "observacoes": owner.observacoes},
+            "broker": {"nome": broker.nome if broker else None, "telefone": broker.telefone if broker else None,
                        "email": broker.email if broker else None, "creci": broker.creci if broker else None},
             "totals": {"properties": 0, "visits": 0, "proposals": 0, "leads": 0, "pending_proposals": 0},
             "properties": [],
@@ -101,68 +99,64 @@ def get_owner_portfolio(db: Session, owner_id: int, current_user: User) -> dict:
 
     prop_ids = [p.id for p in properties]
 
-    # ── Aggregações em queries únicas ──────────────────────────────────────────
     visit_counts = dict(
-        db.query(Appointment.property_id, func.count(Appointment.id))
-        .filter(Appointment.property_id.in_(prop_ids))
-        .group_by(Appointment.property_id).all()
+        db.query(Agendamento.imovel_id, func.count(Agendamento.id))
+        .filter(Agendamento.imovel_id.in_(prop_ids))
+        .group_by(Agendamento.imovel_id).all()
     )
     proposal_counts = dict(
-        db.query(Proposal.property_id, func.count(Proposal.id))
-        .filter(Proposal.property_id.in_(prop_ids))
-        .group_by(Proposal.property_id).all()
+        db.query(Proposta.imovel_id, func.count(Proposta.id))
+        .filter(Proposta.imovel_id.in_(prop_ids))
+        .group_by(Proposta.imovel_id).all()
     )
     pending_counts = dict(
-        db.query(Proposal.property_id, func.count(Proposal.id))
-        .filter(Proposal.property_id.in_(prop_ids), Proposal.status == "pendente")
-        .group_by(Proposal.property_id).all()
+        db.query(Proposta.imovel_id, func.count(Proposta.id))
+        .filter(Proposta.imovel_id.in_(prop_ids), Proposta.situacao == "pendente")
+        .group_by(Proposta.imovel_id).all()
     )
     lead_counts = dict(
-        db.query(Lead.property_id, func.count(Lead.id))
-        .filter(Lead.property_id.in_(prop_ids))
-        .group_by(Lead.property_id).all()
+        db.query(Lead.imovel_id, func.count(Lead.id))
+        .filter(Lead.imovel_id.in_(prop_ids))
+        .group_by(Lead.imovel_id).all()
     )
     fav_counts = dict(
-        db.query(Favorite.property_id, func.count(distinct(Favorite.id)))
-        .filter(Favorite.property_id.in_(prop_ids))
-        .group_by(Favorite.property_id).all()
+        db.query(Favorito.imovel_id, func.count(distinct(Favorito.id)))
+        .filter(Favorito.imovel_id.in_(prop_ids))
+        .group_by(Favorito.imovel_id).all()
     )
 
-    # Próximas visitas (uma por imóvel, status pending/confirmed, mais cedo primeiro)
     upcoming_visits = (
-        db.query(Appointment)
-        .filter(Appointment.property_id.in_(prop_ids), Appointment.status.in_(("pending", "confirmed")))
-        .order_by(Appointment.visit_date.asc())
+        db.query(Agendamento)
+        .filter(Agendamento.imovel_id.in_(prop_ids), Agendamento.situacao.in_(("pendente", "confirmado")))
+        .order_by(Agendamento.data_visita.asc())
         .all()
     )
     next_visit_by_prop: dict = {}
     for v in upcoming_visits:
-        if v.property_id not in next_visit_by_prop:
-            next_visit_by_prop[v.property_id] = v
+        if v.imovel_id not in next_visit_by_prop:
+            next_visit_by_prop[v.imovel_id] = v
 
-    # Todas as visitas e propostas para exibição detalhada
     all_visits = (
-        db.query(Appointment)
-        .filter(Appointment.property_id.in_(prop_ids))
-        .order_by(Appointment.visit_date.desc())
+        db.query(Agendamento)
+        .filter(Agendamento.imovel_id.in_(prop_ids))
+        .order_by(Agendamento.data_visita.desc())
         .all()
     )
     all_proposals = (
-        db.query(Proposal)
-        .filter(Proposal.property_id.in_(prop_ids))
-        .order_by(Proposal.created_at.desc())
+        db.query(Proposta)
+        .filter(Proposta.imovel_id.in_(prop_ids))
+        .order_by(Proposta.criado_em.desc())
         .all()
     )
 
     visits_by_prop: dict[int, list] = {pid: [] for pid in prop_ids}
     for v in all_visits:
-        visits_by_prop[v.property_id].append(v)
+        visits_by_prop[v.imovel_id].append(v)
 
     proposals_by_prop: dict[int, list] = {pid: [] for pid in prop_ids}
     for pr in all_proposals:
-        proposals_by_prop[pr.property_id].append(pr)
+        proposals_by_prop[pr.imovel_id].append(pr)
 
-    # ── Montagem do portfólio ──────────────────────────────────────────────────
     totals = {"properties": len(properties), "visits": 0, "proposals": 0,
               "leads": 0, "pending_proposals": 0}
     portfolio = []
@@ -181,36 +175,36 @@ def get_owner_portfolio(db: Session, owner_id: int, current_user: User) -> dict:
         totals["pending_proposals"] += pend
 
         portfolio.append({
-            "id": p.id, "title": p.title, "price": p.price,
-            "valor_aluguel": p.valor_aluguel, "city": p.city,
-            "neighborhood": p.neighborhood, "image_url": p.image_url,
-            "listing_type": p.listing_type, "status": p.status,
-            "commission_percentage": p.commission_percentage,
-            "created_at": p.created_at,
+            "id": p.id, "titulo": p.titulo, "preco": p.preco,
+            "valor_aluguel": p.valor_aluguel, "cidade": p.cidade,
+            "bairro": p.bairro, "url_imagem": p.url_imagem,
+            "tipo_oferta": p.tipo_oferta, "situacao": p.situacao,
+            "percentual_comissao": p.percentual_comissao,
+            "criado_em": p.criado_em,
             "leads_count": lc, "visits_count": vc,
             "proposals_count": pc, "pending_proposals": pend, "favorites_count": fc,
             "next_visit": {
-                "date": nv.visit_date, "visitor": nv.visitor_name, "status": nv.status,
+                "date": nv.data_visita, "visitor": nv.nome_visitante, "status": nv.situacao,
             } if nv else None,
             "visits": [
-                {"id": v.id, "visitor_name": v.visitor_name, "visitor_phone": v.visitor_phone,
-                 "visit_date": v.visit_date, "status": v.status,
-                 "notes": v.notes, "feedback_visita": v.feedback_visita}
+                {"id": v.id, "nome_visitante": v.nome_visitante, "telefone_visitante": v.telefone_visitante,
+                 "data_visita": v.data_visita, "situacao": v.situacao,
+                 "observacoes": v.observacoes, "feedback_visita": v.feedback_visita}
                 for v in visits_by_prop[p.id]
             ],
             "proposals": [
-                {"id": pr.id, "buyer_name": pr.buyer_name, "buyer_phone": pr.buyer_phone,
-                 "proposed_price": pr.proposed_price, "payment_method": pr.payment_method,
-                 "status": pr.status, "created_at": pr.created_at, "message": pr.message}
+                {"id": pr.id, "nome_comprador": pr.nome_comprador, "telefone_comprador": pr.telefone_comprador,
+                 "valor_ofertado": pr.valor_ofertado, "forma_pagamento": pr.forma_pagamento,
+                 "situacao": pr.situacao, "criado_em": pr.criado_em, "mensagem": pr.mensagem}
                 for pr in proposals_by_prop[p.id]
             ],
         })
 
-    broker = db.query(User).filter(User.id == owner.broker_id).first()
+    broker = db.query(Usuario).filter(Usuario.id == owner.corretor_id).first()
     return {
-        "owner": {"id": owner.id, "name": owner.name, "email": owner.email,
-                  "phone": owner.phone, "notes": owner.notes},
-        "broker": {"name": broker.name if broker else None, "phone": broker.phone if broker else None,
+        "owner": {"id": owner.id, "nome": owner.nome, "email": owner.email,
+                  "telefone": owner.telefone, "observacoes": owner.observacoes},
+        "broker": {"nome": broker.nome if broker else None, "telefone": broker.telefone if broker else None,
                    "email": broker.email if broker else None, "creci": broker.creci if broker else None},
         "totals": totals,
         "properties": portfolio,
@@ -219,33 +213,36 @@ def get_owner_portfolio(db: Session, owner_id: int, current_user: User) -> dict:
 
 # --- LEADS ---
 
-def get_leads(db: Session, current_user: User, skip: int, limit: int, search: str | None) -> dict:
+def get_leads(db: Session, current_user: Usuario, skip: int, limit: int, search: str | None, situacao: str | None = None) -> dict:
     query = db.query(Lead)
-    if current_user.role == "admin":
+    if current_user.perfil == "admin":
         pass
-    elif current_user.role == "agency":
-        broker_ids = [b.id for b in current_user.brokers]
+    elif current_user.perfil == "imobiliaria":
+        broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
-        query = query.filter(or_(Lead.broker_id.in_(broker_ids), Lead.broker_id.is_(None)))
+        query = query.filter(or_(Lead.corretor_id.in_(broker_ids), Lead.corretor_id.is_(None)))
     else:
-        query = query.filter(Lead.broker_id == current_user.id)
+        query = query.filter(Lead.corretor_id == current_user.id)
 
     if search:
         query = query.filter(
             or_(
-                Lead.name.ilike(f"%{search}%"),
+                Lead.nome.ilike(f"%{search}%"),
                 Lead.email.ilike(f"%{search}%"),
-                Lead.phone.ilike(f"%{search}%"),
+                Lead.telefone.ilike(f"%{search}%"),
             )
         )
 
+    if situacao:
+        query = query.filter(Lead.situacao == situacao)
+
     total = query.count()
-    leads = query.order_by(Lead.created_at.desc()).offset(skip).limit(limit).all()
+    leads = query.order_by(Lead.criado_em.desc()).offset(skip).limit(limit).all()
 
     items = []
     for l in leads:
         item = l.__dict__.copy()
-        item["broker_name"] = l.broker.name if l.broker else "Plataforma"
+        item["broker_name"] = l.corretor.nome if l.corretor else "Plataforma"
         items.append(item)
 
     return {
@@ -256,41 +253,72 @@ def get_leads(db: Session, current_user: User, skip: int, limit: int, search: st
     }
 
 
-def create_lead(db: Session, lead_in: LeadCreate, broker_id: int) -> Lead:
-    db_lead = Lead(**lead_in.model_dump(), broker_id=broker_id)
+def create_lead(db: Session, lead_in: LeadCriar, corretor_id: int) -> Lead:
+    db_lead = Lead(**lead_in.model_dump(), corretor_id=corretor_id)
     db.add(db_lead)
     db.commit()
     db.refresh(db_lead)
     return db_lead
 
 
-def create_public_lead(db: Session, lead_in: LeadCreate) -> Lead:
-    prop = db.query(Property).filter(Property.id == lead_in.property_id).first()
+def create_public_lead(db: Session, lead_in: LeadCriar) -> Lead:
+    prop = db.query(Imovel).filter(Imovel.id == lead_in.imovel_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
-    db_lead = Lead(**lead_in.model_dump(), broker_id=prop.owner_id)
+    db_lead = Lead(**lead_in.model_dump(), corretor_id=prop.corretor_id)
     db.add(db_lead)
     db.commit()
     db.refresh(db_lead)
     return db_lead
 
 
-def update_lead_status(db: Session, lead_id: int, status: str, current_user: User) -> dict:
+SITUACOES_KANBAN = ["novo", "contatado", "visita", "proposta", "fechado", "perdido"]
+
+
+def get_leads_kanban(db: Session, current_user: Usuario) -> dict:
+    query = db.query(Lead)
+    if current_user.perfil == "imobiliaria":
+        broker_ids = [b.id for b in current_user.corretores]
+        broker_ids.append(current_user.id)
+        query = query.filter(Lead.corretor_id.in_(broker_ids))
+    else:
+        query = query.filter(Lead.corretor_id == current_user.id)
+
+    leads = query.order_by(Lead.criado_em.desc()).limit(300).all()
+
+    colunas: dict = {s: [] for s in SITUACOES_KANBAN}
+    for lead in leads:
+        col = lead.situacao if lead.situacao in colunas else "novo"
+        colunas[col].append({
+            "id": lead.id,
+            "nome": lead.nome,
+            "telefone": lead.telefone,
+            "email": lead.email,
+            "origem": lead.origem,
+            "situacao": lead.situacao,
+            "imovel_id": lead.imovel_id,
+            "broker_name": lead.corretor.nome if lead.corretor else "Plataforma",
+            "criado_em": lead.criado_em.isoformat() if lead.criado_em else None,
+        })
+
+    return colunas
+
+
+def update_lead_status(db: Session, lead_id: int, situacao: str, current_user: Usuario) -> dict:
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
-    # Admin pode alterar qualquer lead; broker só altera os seus
-    if current_user.role != "admin" and lead.broker_id != current_user.id:
+    if current_user.perfil != "admin" and lead.corretor_id != current_user.id:
         raise HTTPException(status_code=403, detail="Acesso negado")
-    lead.status = status
+    lead.situacao = situacao
     db.commit()
     return {"message": "Status atualizado"}
 
 
 # --- MANDATES ---
 
-def create_mandate(db: Session, mandate_in, broker_id: int) -> Mandate:
-    db_mandate = Mandate(**mandate_in.model_dump(), broker_id=broker_id)
+def create_mandate(db: Session, mandate_in, corretor_id: int) -> Mandato:
+    db_mandate = Mandato(**mandate_in.model_dump(), corretor_id=corretor_id)
     db.add(db_mandate)
     db.commit()
     db.refresh(db_mandate)
@@ -299,15 +327,15 @@ def create_mandate(db: Session, mandate_in, broker_id: int) -> Mandate:
 
 # --- ACTIVITIES ---
 
-def add_activity(db: Session, lead_id: int, activity_in: ActivityCreate, current_user: User) -> dict:
+def add_activity(db: Session, lead_id: int, activity_in: ActivityCreate, current_user: Usuario) -> dict:
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
 
-    db_activity = LeadActivity(
+    db_activity = AtividadeLead(
         **activity_in.model_dump(),
         lead_id=lead_id,
-        user_id=current_user.id,
+        usuario_id=current_user.id,
     )
     db.add(db_activity)
     db.commit()
@@ -315,18 +343,18 @@ def add_activity(db: Session, lead_id: int, activity_in: ActivityCreate, current
 
     return {
         **db_activity.__dict__,
-        "user_name": current_user.name,
+        "user_name": current_user.nome,
     }
 
 
 def get_activities(db: Session, lead_id: int) -> list:
     activities = (
-        db.query(LeadActivity)
-        .filter(LeadActivity.lead_id == lead_id)
-        .order_by(LeadActivity.created_at.desc())
+        db.query(AtividadeLead)
+        .filter(AtividadeLead.lead_id == lead_id)
+        .order_by(AtividadeLead.criado_em.desc())
         .all()
     )
     return [
-        {**act.__dict__, "user_name": act.user.name if act.user else "Sistema"}
+        {**act.__dict__, "user_name": act.usuario.nome if act.usuario else "Sistema"}
         for act in activities
     ]

@@ -11,7 +11,7 @@ export function Skeleton({ className = "" }: SkeletonProps) {
   );
 }
 
-export function PropertyCardSkeleton() {
+export function CardImovelSkeleton() {
   return (
     <div
       aria-hidden="true"

@@ -6,6 +6,7 @@ from app.models.agendamento import Agendamento
 from app.models.imovel import Imovel
 from app.models.usuario import Usuario
 from app.schemas.agendamento import AgendamentoCriar
+from app.services.crm_service import criar_lead_auto
 
 
 def schedule_visit(db: Session, visit_in: AgendamentoCriar, current_user: Usuario | None) -> Agendamento:
@@ -32,6 +33,19 @@ def schedule_visit(db: Session, visit_in: AgendamentoCriar, current_user: Usuari
     db.add(db_visit)
     db.commit()
     db.refresh(db_visit)
+
+    criar_lead_auto(
+        db,
+        imovel_id=visit_in.imovel_id,
+        corretor_id=corretor_id,
+        nome=visit_in.nome_visitante,
+        telefone=visit_in.telefone_visitante,
+        email=current_user.email if current_user else None,
+        origem="agendamento",
+        situacao="visita",
+        observacoes=f"Visita agendada para {visit_in.data_visita.strftime('%d/%m/%Y às %H:%M')}",
+    )
+
     return db_visit
 
 
@@ -48,10 +62,14 @@ def update_feedback(db: Session, appointment_id: int, feedback: str, current_use
 
 def get_appointments(db: Session, current_user: Usuario) -> list:
     base = db.query(Agendamento).options(joinedload(Agendamento.imovel))
-    if current_user.perfil in ("comprador",):
+    if current_user.perfil == "comprador":
+        # visitas que agendou como visitante + visitas ao imóvel que ele anunciou
         return (
             base
-            .filter(Agendamento.comprador_id == current_user.id)
+            .filter(
+                (Agendamento.comprador_id == current_user.id) |
+                (Agendamento.corretor_id == current_user.id)
+            )
             .order_by(Agendamento.data_visita.asc())
             .all()
         )
@@ -63,7 +81,7 @@ def get_appointments(db: Session, current_user: Usuario) -> list:
             .order_by(Agendamento.data_visita.asc())
             .all()
         )
-    # corretor e admin: vê pelos próprios agendamentos linkados + agendados por eles como visitante
+    # corretor e admin
     return (
         base
         .filter(
@@ -84,7 +102,10 @@ def change_appointment_status(db: Session, appointment_id: int, situacao: str, c
     if not appointment:
         raise HTTPException(status_code=404, detail="Agendamento não encontrado")
 
-    if appointment.corretor_id != current_user.id and current_user.perfil != "imobiliaria":
+    is_announcer = appointment.corretor_id == current_user.id
+    is_agency = current_user.perfil == "imobiliaria"
+    is_buyer = appointment.comprador_id == current_user.id and situacao == "cancelado"
+    if not is_announcer and not is_agency and not is_buyer:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
     appointment.situacao = situacao

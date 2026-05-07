@@ -257,8 +257,10 @@ def get_leads(db: Session, current_user: Usuario, skip: int, limit: int, search:
 
     items = []
     for l in leads:
+        corretor = l.corretor  # trigger lazy load before __dict__
         item = l.__dict__.copy()
-        item["broker_name"] = l.corretor.nome if l.corretor else None
+        item["broker_name"] = corretor.nome if corretor else None
+        item["corretor_id"] = l.corretor_id  # ensure FK is set after load
         items.append(item)
 
     return {

@@ -168,13 +168,27 @@ export default function CRMDashboard() {
         return;
       }
 
+      // User fetch isolado para garantir que falha em owners/imoveis não bloqueie o perfil
       try {
-        const [ownersRes, userRes, propsRes] = await Promise.all([
+        const userRes = await fetch(`${API}/api/v1/auth/me`, { headers: { "Authorization": `Bearer ${token}` } });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          if (userData.perfil === "comprador") {
+            router.push("/dashboard");
+            return;
+          }
+          setUser(userData);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar usuário", err);
+      }
+
+      // Demais dados em paralelo (falhas individuais são toleradas)
+      try {
+        const [ownersRes, propsRes] = await Promise.all([
           fetch(`${API}/api/v1/crm/owners`, { headers: { "Authorization": `Bearer ${token}` } }),
-          fetch(`${API}/api/v1/auth/me`, { headers: { "Authorization": `Bearer ${token}` } }),
           fetch(`${API}/api/v1/imoveis/user/me`, { headers: { "Authorization": `Bearer ${token}` } })
         ]);
-
         if (ownersRes.ok) {
           const ownersData = await ownersRes.json();
           setOwners(ownersData.items || ownersData);
@@ -182,10 +196,6 @@ export default function CRMDashboard() {
         if (propsRes.ok) {
           const propsData = await propsRes.json();
           setProperties(propsData.items || propsData);
-        }
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setUser(userData);
         }
       } catch (err) {
         console.error("Erro ao carregar dados do CRM", err);

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from datetime import datetime
 from uuid import UUID
+from typing import Any, Literal
 
 
 class UsuarioCriar(BaseModel):
@@ -35,17 +36,19 @@ class UserAdminResponse(BaseModel):
     ativo: bool
     criado_em: datetime
     broker_count: int = 0
+    imobiliaria_id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserAdminUpdate(BaseModel):
     nome: str | None = None
-    perfil: str | None = None
+    perfil: Literal["comprador", "corretor", "imobiliaria", "admin"] | None = None
     tipo_plano: str | None = None
     plano_expira_em: datetime | None = None
     creci: str | None = None
     ativo: bool | None = None
+    imobiliaria_id: int | None = None
 
 
 class Token(BaseModel):
@@ -59,3 +62,51 @@ class BrokerCreate(BaseModel):
     password: str
     telefone: str | None = None
     creci: str | None = None
+
+
+class RedesSociais(BaseModel):
+    instagram: str | None = None
+    facebook: str | None = None
+    linkedin: str | None = None
+    site: str | None = None
+    whatsapp: str | None = None
+
+
+class LandingConfigAtualizar(BaseModel):
+    slug: str | None = Field(None, min_length=3, max_length=100, pattern=r"^[a-z0-9][a-z0-9\-]*[a-z0-9]$")
+    bio: str | None = Field(None, max_length=1000)
+    foto_perfil_url: str | None = Field(None, max_length=500)
+    cor_primaria: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    cor_secundaria: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    redes_sociais: RedesSociais | None = None
+    landing_ativa: bool | None = None
+
+
+class LandingConfigResposta(BaseModel):
+    slug: str | None = None
+    bio: str | None = None
+    foto_perfil_url: str | None = None
+    cor_primaria: str | None = None
+    cor_secundaria: str | None = None
+    redes_sociais: Any | None = None
+    landing_ativa: bool = False
+    tipo_plano: str | None = None
+    landing_url: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LandingPerfilPublico(BaseModel):
+    id: int
+    nome: str | None = None
+    perfil: str
+    creci: str | None = None
+    telefone: str | None = None
+    bio: str | None = None
+    foto_perfil_url: str | None = None
+    cor_primaria: str = "#1d4ed8"
+    cor_secundaria: str = "#1e293b"
+    redes_sociais: Any | None = None
+    tipo_plano: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)

@@ -323,7 +323,14 @@ def create_public_lead(db: Session, lead_in: LeadCriar) -> Lead:
     prop = db.query(Imovel).filter(Imovel.id == lead_in.imovel_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
-    db_lead = Lead(**lead_in.model_dump(), corretor_id=prop.corretor_id)
+    # Leads de imóveis de imobiliária vão para o pool (corretor_id=None)
+    # para que corretores da equipe possam assumir via /claim
+    owner = db.query(Usuario).filter(Usuario.id == prop.corretor_id).first()
+    if owner and owner.perfil == "imobiliaria":
+        corretor_id = None
+    else:
+        corretor_id = prop.corretor_id
+    db_lead = Lead(**lead_in.model_dump(), corretor_id=corretor_id)
     db.add(db_lead)
     db.commit()
     db.refresh(db_lead)

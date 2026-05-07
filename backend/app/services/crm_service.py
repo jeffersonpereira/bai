@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func, distinct
+from sqlalchemy import or_, and_, func, distinct
 from fastapi import HTTPException
 
 from app.models.proprietario import Proprietario
@@ -221,6 +221,22 @@ def get_leads(db: Session, current_user: Usuario, skip: int, limit: int, search:
         broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
         query = query.filter(or_(Lead.corretor_id.in_(broker_ids), Lead.corretor_id.is_(None)))
+    elif current_user.perfil == "corretor" and current_user.imobiliaria_id is not None:
+        agency_broker_ids = [
+            b.id for b in db.query(Usuario).filter(Usuario.imobiliaria_id == current_user.imobiliaria_id).all()
+        ]
+        agency_broker_ids.append(current_user.imobiliaria_id)
+        query = query.filter(
+            or_(
+                Lead.corretor_id == current_user.id,
+                and_(
+                    Lead.corretor_id.is_(None),
+                    Lead.imovel_id.in_(
+                        db.query(Imovel.id).filter(Imovel.corretor_id.in_(agency_broker_ids))
+                    ),
+                ),
+            )
+        )
     else:
         query = query.filter(Lead.corretor_id == current_user.id)
 
@@ -242,7 +258,7 @@ def get_leads(db: Session, current_user: Usuario, skip: int, limit: int, search:
     items = []
     for l in leads:
         item = l.__dict__.copy()
-        item["broker_name"] = l.corretor.nome if l.corretor else "Plataforma"
+        item["broker_name"] = l.corretor.nome if l.corretor else None
         items.append(item)
 
     return {
@@ -251,6 +267,46 @@ def get_leads(db: Session, current_user: Usuario, skip: int, limit: int, search:
         "page": (skip // limit) + 1,
         "limit": limit,
     }
+
+
+def criar_lead_auto(
+    db: Session,
+    *,
+    imovel_id: int | None,
+    corretor_id: int | None,
+    nome: str,
+    telefone: str | None = None,
+    email: str | None = None,
+    origem: str,
+    situacao: str = "novo",
+    observacoes: str | None = None,
+) -> Lead | None:
+    """Cria lead automaticamente, ignorando se já existe para o mesmo contato."""
+    if telefone or email:
+        q = db.query(Lead).filter(Lead.corretor_id == corretor_id)
+        if imovel_id:
+            q = q.filter(Lead.imovel_id == imovel_id)
+        conditions = []
+        if telefone:
+            conditions.append(Lead.telefone == telefone)
+        if email:
+            conditions.append(Lead.email == email)
+        if q.filter(or_(*conditions)).first():
+            return None
+    db_lead = Lead(
+        imovel_id=imovel_id,
+        corretor_id=corretor_id,
+        nome=nome,
+        telefone=telefone,
+        email=email,
+        origem=origem,
+        situacao=situacao,
+        observacoes=observacoes,
+    )
+    db.add(db_lead)
+    db.commit()
+    db.refresh(db_lead)
+    return db_lead
 
 
 def create_lead(db: Session, lead_in: LeadCriar, corretor_id: int) -> Lead:
@@ -281,6 +337,22 @@ def get_leads_kanban(db: Session, current_user: Usuario) -> dict:
         broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
         query = query.filter(Lead.corretor_id.in_(broker_ids))
+    elif current_user.perfil == "corretor" and current_user.imobiliaria_id is not None:
+        agency_broker_ids = [
+            b.id for b in db.query(Usuario).filter(Usuario.imobiliaria_id == current_user.imobiliaria_id).all()
+        ]
+        agency_broker_ids.append(current_user.imobiliaria_id)
+        query = query.filter(
+            or_(
+                Lead.corretor_id == current_user.id,
+                and_(
+                    Lead.corretor_id.is_(None),
+                    Lead.imovel_id.in_(
+                        db.query(Imovel.id).filter(Imovel.corretor_id.in_(agency_broker_ids))
+                    ),
+                ),
+            )
+        )
     else:
         query = query.filter(Lead.corretor_id == current_user.id)
 
@@ -297,7 +369,8 @@ def get_leads_kanban(db: Session, current_user: Usuario) -> dict:
             "origem": lead.origem,
             "situacao": lead.situacao,
             "imovel_id": lead.imovel_id,
-            "broker_name": lead.corretor.nome if lead.corretor else "Plataforma",
+            "corretor_id": lead.corretor_id,
+            "broker_name": lead.corretor.nome if lead.corretor else None,
             "criado_em": lead.criado_em.isoformat() if lead.criado_em else None,
         })
 
@@ -313,6 +386,29 @@ def update_lead_status(db: Session, lead_id: int, situacao: str, current_user: U
     lead.situacao = situacao
     db.commit()
     return {"message": "Status atualizado"}
+
+
+def claim_lead(db: Session, lead_id: int, current_user: Usuario) -> Lead:
+    if current_user.imobiliaria_id is None:
+        raise HTTPException(status_code=403, detail="Apenas corretores membros de equipe podem assumir leads.")
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if lead.corretor_id is not None:
+        raise HTTPException(status_code=409, detail="Lead já está atribuído a um corretor.")
+    if lead.imovel_id:
+        prop = db.query(Imovel).filter(Imovel.id == lead.imovel_id).first()
+        if prop:
+            agency_broker_ids = [
+                b.id for b in db.query(Usuario).filter(Usuario.imobiliaria_id == current_user.imobiliaria_id).all()
+            ]
+            agency_broker_ids.append(current_user.imobiliaria_id)
+            if prop.corretor_id not in agency_broker_ids:
+                raise HTTPException(status_code=403, detail="Este lead não pertence à sua agência.")
+    lead.corretor_id = current_user.id
+    db.commit()
+    db.refresh(lead)
+    return lead
 
 
 # --- MANDATES ---
@@ -331,6 +427,8 @@ def add_activity(db: Session, lead_id: int, activity_in: ActivityCreate, current
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if current_user.perfil not in ["admin", "imobiliaria"] and lead.corretor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Acesso negado")
 
     db_activity = AtividadeLead(
         **activity_in.model_dump(),

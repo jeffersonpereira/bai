@@ -185,10 +185,6 @@ export default function CRMDashboard() {
         }
         if (userRes.ok) {
           const userData = await userRes.json();
-          if (userData.role === 'broker' && userData.parent_id !== null) {
-            router.push('/dashboard');
-            return;
-          }
           setUser(userData);
         }
       } catch (err) {
@@ -200,6 +196,28 @@ export default function CRMDashboard() {
 
     fetchData();
   }, [router]);
+
+  const handleClaimLead = async (leadId: number) => {
+    const token = localStorage.getItem("bai_token");
+    try {
+      const res = await fetch(`${API}/api/v1/crm/leads/${leadId}/claim`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (res.ok) {
+        success("Lead assumido com sucesso!");
+        fetchLeads();
+      } else {
+        const data = await res.json();
+        toastError(data.detail || "Erro ao assumir lead.");
+      }
+    } catch (err) {
+      console.error(err);
+      toastError("Erro de conexão com o servidor.");
+    }
+  };
+
+  const isTeamBroker = user?.perfil === "corretor" && user?.imobiliaria_id != null;
 
   const updateLeadStatus = async (leadId: number, newStatus: string) => {
     const token = localStorage.getItem("bai_token");
@@ -230,12 +248,6 @@ export default function CRMDashboard() {
           <button onClick={() => setShowLeadForm(true)} className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-6 py-3.5 rounded-2xl font-bold hover:bg-indigo-100 transition shadow-sm">
             + Novo Lead
           </button>
-          <Link href="/dashboard/owners" className="bg-white border border-slate-200 text-slate-700 px-6 py-3.5 rounded-2xl font-bold hover:bg-slate-50 transition">
-            Gerenciar Proprietários
-          </Link>
-          <Link href="/announce" className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-            Novo Anúncio
-          </Link>
         </div>
       </div>
 
@@ -382,11 +394,19 @@ export default function CRMDashboard() {
                           >
                             <div className="font-bold text-sm text-slate-900 mb-1 truncate">{lead.nome}</div>
                             <div className="text-xs text-slate-400 truncate">{lead.telefone || lead.email || '—'}</div>
+                            {(user?.perfil === 'imobiliaria' || isTeamBroker) && (
+                              <div className="text-[10px] font-bold mt-1 truncate">
+                                {lead.corretor_id == null
+                                  ? <span className="text-amber-500">Não atribuído</span>
+                                  : <span className="text-blue-500">{lead.broker_name}</span>
+                                }
+                              </div>
+                            )}
                             <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
                               <span className="text-[10px] text-slate-400 font-medium">Imóvel #{lead.imovel_id}</span>
                               <button
                                 onClick={() => {
-                                  setSelectedLead({ ...lead, name: lead.nome, property_id: lead.imovel_id });
+                                  setSelectedLead(lead);
                                   fetchActivities(lead.id);
                                 }}
                                 className="text-[9px] font-black uppercase tracking-widest text-blue-600 opacity-0 group-hover:opacity-100 transition bg-blue-50 px-2 py-1 rounded-lg"
@@ -415,7 +435,7 @@ export default function CRMDashboard() {
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Interessado</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Imóvel</th>
-                  {user?.role === 'agency' && (
+                  {(user?.perfil === 'imobiliaria' || isTeamBroker) && (
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Corretor</th>
                   )}
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Data</th>
@@ -437,8 +457,8 @@ export default function CRMDashboard() {
                 {(leads || []).map((lead: any) => (
                   <tr key={lead.id} className="hover:bg-slate-50/50 transition">
                     <td className="px-6 py-5">
-                      <div className="font-bold text-slate-900">{user?.plan_type === 'free' ? 'Nome Oculto' : lead.name}</div>
-                      
+                      <div className="font-bold text-slate-900">{user?.plan_type === 'free' ? 'Nome Oculto' : lead.nome}</div>
+
                       {user?.plan_type === 'free' ? (
                         <div className="mt-1 group relative inline-block">
                           <div className="text-xs text-slate-500 blur-sm select-none">(11) 99999-9999</div>
@@ -447,28 +467,32 @@ export default function CRMDashboard() {
                           </Link>
                         </div>
                       ) : (
-                        <div className="text-xs text-slate-500">{lead.phone || lead.email}</div>
+                        <div className="text-xs text-slate-500">{lead.telefone || lead.email}</div>
                       )}
                     </td>
                     <td className="px-6 py-5">
                       {(() => {
-                        const prop = properties.find((p: any) => p.id === lead.property_id);
+                        const prop = properties.find((p: any) => p.id === lead.imovel_id);
                         return prop ? (
-                          <Link href={`/properties/${lead.property_id}`} className="text-sm font-medium text-slate-700 hover:text-blue-600 transition line-clamp-1 max-w-[180px] block" title={prop.title}>
-                            {prop.title}
+                          <Link href={`/properties/${lead.imovel_id}`} className="text-sm font-medium text-slate-700 hover:text-blue-600 transition line-clamp-1 max-w-[180px] block" title={prop.titulo}>
+                            {prop.titulo}
                           </Link>
                         ) : (
-                          <span className="text-sm text-slate-400">#{lead.property_id}</span>
+                          <span className="text-sm text-slate-400">#{lead.imovel_id}</span>
                         );
                       })()}
                     </td>
-                    {user?.role === 'agency' && (
-                      <td className="px-6 py-5 text-xs font-bold text-blue-600">
-                        {lead.broker_name || 'Agência'}
+                    {(user?.perfil === 'imobiliaria' || isTeamBroker) && (
+                      <td className="px-6 py-5">
+                        {lead.corretor_id == null ? (
+                          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">Não atribuído</span>
+                        ) : (
+                          <span className="text-xs font-bold text-blue-600">{lead.broker_name}</span>
+                        )}
                       </td>
                     )}
                     <td className="px-6 py-5 text-xs text-slate-400 font-medium">
-                      {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                      {new Date(lead.criado_em).toLocaleDateString('pt-BR')}
                     </td>
                     <td className="px-6 py-5">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -481,24 +505,37 @@ export default function CRMDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-5 flex items-center gap-2">
-                        <select
-                          className="bg-transparent text-xs font-bold text-blue-600 focus:outline-none cursor-pointer"
-                          value={lead.situacao}
-                          onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
-                        >
-                          <option value="novo">Novo</option>
-                          <option value="contatado">Contatado</option>
-                          <option value="visita">Visita</option>
-                          <option value="proposta">Proposta</option>
-                          <option value="fechado">Fechado</option>
-                          <option value="perdido">Perdido</option>
-                        </select>
-                        <button 
-                          onClick={() => { setSelectedLead(lead); fetchActivities(lead.id); }}
-                          className="text-blue-600 hover:text-blue-700 font-bold text-xs uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg transition"
-                        >
-                          Atividades
-                        </button>
+                        {isTeamBroker && lead.corretor_id == null ? (
+                          <button
+                            onClick={() => handleClaimLead(lead.id)}
+                            className="text-emerald-700 hover:text-emerald-800 font-bold text-xs uppercase tracking-widest bg-emerald-50 px-3 py-1.5 rounded-lg transition"
+                          >
+                            Assumir Lead
+                          </button>
+                        ) : (
+                          <>
+                            {(user?.perfil !== 'imobiliaria' || lead.corretor_id === user?.id) && (
+                              <select
+                                className="bg-transparent text-xs font-bold text-blue-600 focus:outline-none cursor-pointer"
+                                value={lead.situacao}
+                                onChange={(e) => updateLeadStatus(lead.id, e.target.value)}
+                              >
+                                <option value="novo">Novo</option>
+                                <option value="contatado">Contatado</option>
+                                <option value="visita">Visita</option>
+                                <option value="proposta">Proposta</option>
+                                <option value="fechado">Fechado</option>
+                                <option value="perdido">Perdido</option>
+                              </select>
+                            )}
+                            <button
+                              onClick={() => { setSelectedLead(lead); fetchActivities(lead.id); }}
+                              className="text-blue-600 hover:text-blue-700 font-bold text-xs uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg transition"
+                            >
+                              Atividades
+                            </button>
+                          </>
+                        )}
                     </td>
                   </tr>
                 ))}
@@ -542,8 +579,8 @@ export default function CRMDashboard() {
           <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-black text-slate-900">{selectedLead.name}</h2>
-                <p className="text-slate-500 font-medium">Histórico de Negociação • Imóvel #{selectedLead.property_id}</p>
+                <h2 className="text-2xl font-black text-slate-900">{selectedLead.nome}</h2>
+                <p className="text-slate-500 font-medium">Histórico de Negociação • Imóvel #{selectedLead.imovel_id}</p>
               </div>
               <button onClick={() => setSelectedLead(null)} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition font-bold">✕</button>
             </div>

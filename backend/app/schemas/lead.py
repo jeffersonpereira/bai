@@ -19,6 +19,7 @@ class LeadCriar(LeadBase):
 
 class LeadResposta(LeadBase):
     id: int
+    corretor_id: int | None = None
     criado_em: datetime
     broker_name: str | None = None
 

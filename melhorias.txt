@@ -47,3 +47,10 @@ GERAL
 - Criar a página nossa missão
 - Corrigir o acesso ao recurso do WhatsApp: mesmo estando no plano que permite o recurso o sistema não o está habilitando
 - Criar um sistema de auditoria das ações dos usuários; no painel admin será possível todas as ações dos usuários
+
+#IDEIAS
+- Criar um aplicativo mobile destinado ao corretor
+- Criar criar um mecanismo de pesquisa que seja capaz de medir o grau de interesse do comprador no imóvel
+- Os membros da equipe da imobiliaria são automaticamente usuários do whatsapp; a conexão deve ser a mesma da imobiliária
+- Criar na exibição do anúncio um botão para que o usuário envie mensagem pelo whatsapp e na mensagem indique o link e os dados do imóvel para que o atendente se contextualize.
+- Criar uma tela para que o usuário complemente os dados do seu perfil

@@ -22,7 +22,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=r"https://bai-psi-neon\.vercel\.app",
+    allow_origin_regex=settings.CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
@@ -39,7 +39,11 @@ async def limit_request_size(request: Request, call_next):
     return await call_next(request)
 
 
-from app.routers import auth, imoveis, crm, agendamentos, favoritos, match, admin, equipe, propostas, vendedor, comissoes, visualizacoes, financiamento, documentos, whatsapp
+from app.routers import (
+    auth, imoveis, crm, agendamentos, favoritos, match, admin, equipe,
+    propostas, vendedor, comissoes, visualizacoes, financiamento,
+    documentos, whatsapp, landing, cobranca, configuracao, cupons,
+)
 
 PREFIX = "/api/v1"
 app.include_router(auth.router, prefix=PREFIX)
@@ -57,6 +61,10 @@ app.include_router(visualizacoes.router, prefix=PREFIX)
 app.include_router(financiamento.router, prefix=PREFIX)
 app.include_router(documentos.router, prefix=PREFIX)
 app.include_router(whatsapp.router, prefix=PREFIX)
+app.include_router(landing.router, prefix=PREFIX)
+app.include_router(cobranca.router, prefix=PREFIX)
+app.include_router(configuracao.router, prefix=PREFIX)
+app.include_router(cupons.router, prefix=PREFIX)
 
 
 @app.get("/")

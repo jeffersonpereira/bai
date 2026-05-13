@@ -29,6 +29,7 @@ class WhatsAppWebhookMessage(BaseModel):
     body: str
     timestamp: Optional[int] = None
     message_id: Optional[str] = None
+    push_name: Optional[str] = None
 
 
 class WhatsAppWebhookStatus(BaseModel):

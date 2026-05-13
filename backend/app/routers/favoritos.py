@@ -8,6 +8,7 @@ from app.models.imovel import Imovel
 from app.models.usuario import Usuario
 from app.schemas.favorito import FavoritoCriar, FavoritoResposta
 from app.core.deps import get_current_user
+from app.services.crm_service import criar_lead_auto
 
 router = APIRouter(prefix="/favoritos", tags=["favoritos"])
 
@@ -36,10 +37,25 @@ def add_favorite(
     if existing:
         raise HTTPException(status_code=400, detail="Imóvel já está nos favoritos")
 
+    imovel = db.query(Imovel).filter(Imovel.id == favorite_in.imovel_id).first()
+
     new_favorite = Favorito(usuario_id=current_user.id, imovel_id=favorite_in.imovel_id)
     db.add(new_favorite)
     db.commit()
     db.refresh(new_favorite)
+
+    if imovel and imovel.corretor_id != current_user.id:
+        criar_lead_auto(
+            db,
+            imovel_id=favorite_in.imovel_id,
+            corretor_id=imovel.corretor_id,
+            nome=current_user.nome,
+            telefone=current_user.telefone,
+            email=current_user.email,
+            origem="favorito",
+            observacoes="Usuário adicionou o imóvel aos favoritos",
+        )
+
     return new_favorite
 
 

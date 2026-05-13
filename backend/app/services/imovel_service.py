@@ -2,9 +2,10 @@ import hashlib
 import re
 import time as time_module
 import unicodedata
+import uuid
 from sqlalchemy import or_, text, func
 from sqlalchemy.orm import Session, joinedload
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from typing import List
 
 from app.models.imovel import Imovel
@@ -17,6 +18,7 @@ from app.models.lead import Lead
 from app.models.mandato import Mandato
 from app.schemas.imovel import ImovelCriar, PaginatedPropertiesResponse
 from app.core.config import settings
+from app.core.supabase_client import get_supabase_client
 
 _LOCATIONS_CACHE: dict = {"data": None, "expiry": 0}
 _CACHE_TTL = 300
@@ -230,6 +232,25 @@ def get_property(db: Session, property_id: int) -> Imovel:
     if not prop:
         raise HTTPException(status_code=404, detail="Imóvel não encontrado")
     return prop
+
+
+def get_properties_by_owner(
+    db: Session,
+    proprietario_id: int,
+    page: int = 1,
+    limit: int = 20,
+) -> PaginatedPropertiesResponse:
+    from app.models.proprietario import Proprietario
+    owner = db.query(Proprietario).filter(Proprietario.id == proprietario_id).first()
+    if not owner:
+        raise HTTPException(status_code=404, detail="Proprietário não encontrado")
+    query = db.query(Imovel).options(joinedload(Imovel.midias)).filter(
+        Imovel.proprietario_id == proprietario_id
+    )
+    total = query.count()
+    skip = (page - 1) * limit
+    items = query.order_by(Imovel.criado_em.desc()).offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "page": page, "limit": limit}
 
 
 def get_my_properties(
@@ -496,7 +517,13 @@ def analyze_price(
 
 
 def assign_broker(db: Session, property_id: int, user_id: int, current_user: Usuario) -> dict:
-    get_property(db, property_id)
+    prop = get_property(db, property_id)
+    owns = (
+        prop.corretor_id == current_user.id
+        or (prop.corretor is not None and prop.corretor.imobiliaria_id == current_user.id)
+    )
+    if not owns:
+        raise HTTPException(status_code=403, detail="Sem permissão: imóvel pertence a outra imobiliária")
     broker = db.query(Usuario).filter(Usuario.id == user_id, Usuario.imobiliaria_id == current_user.id).first()
     if not broker:
         raise HTTPException(status_code=404, detail="Corretor não encontrado na equipe")
@@ -506,7 +533,14 @@ def assign_broker(db: Session, property_id: int, user_id: int, current_user: Usu
     return {"message": f"Imóvel atribuído a {broker.nome}"}
 
 
-def unassign_broker(db: Session, property_id: int, user_id: int) -> dict:
+def unassign_broker(db: Session, property_id: int, user_id: int, current_user: Usuario) -> dict:
+    prop = get_property(db, property_id)
+    owns = (
+        prop.corretor_id == current_user.id
+        or (prop.corretor is not None and prop.corretor.imobiliaria_id == current_user.id)
+    )
+    if not owns:
+        raise HTTPException(status_code=403, detail="Sem permissão: imóvel pertence a outra imobiliária")
     assignment = db.query(ResponsavelImovel).filter(
         ResponsavelImovel.imovel_id == property_id,
         ResponsavelImovel.usuario_id == user_id,
@@ -536,3 +570,66 @@ def update_availability(db: Session, property_id: int, availability_in: list, cu
         db.add(DisponibilidadeImovel(**item.model_dump(), imovel_id=property_id))
     db.commit()
     return db.query(DisponibilidadeImovel).filter(DisponibilidadeImovel.imovel_id == property_id).all()
+
+
+_TIPOS_IMAGEM_VALIDOS = {"image/jpeg", "image/png", "image/webp"}
+_LIMITE_IMAGENS = 4
+_LIMITE_BYTES = 1_048_576  # 1 MB
+_BUCKET_IMOVEL = "imovel"
+
+
+async def fazer_upload_imagem(imovel_id: int, arquivo: UploadFile, db: Session) -> MidiaImovel:
+    count = db.query(MidiaImovel).filter(
+        MidiaImovel.imovel_id == imovel_id,
+        MidiaImovel.tipo_midia == "imagem",
+    ).count()
+    if count >= _LIMITE_IMAGENS:
+        raise HTTPException(status_code=400, detail=f"Imóvel já possui o máximo de {_LIMITE_IMAGENS} imagens")
+
+    if arquivo.content_type not in _TIPOS_IMAGEM_VALIDOS:
+        raise HTTPException(status_code=400, detail="Tipo de arquivo não suportado. Use JPEG, PNG ou WebP")
+
+    conteudo = await arquivo.read()
+    if len(conteudo) > _LIMITE_BYTES:
+        raise HTTPException(status_code=400, detail="Imagem não pode exceder 1 MB")
+
+    ext = "jpg" if arquivo.content_type == "image/jpeg" else arquivo.content_type.split("/")[1]
+    storage_path = f"{imovel_id}/{uuid.uuid4()}.{ext}"
+
+    supabase = get_supabase_client()
+    supabase.storage.from_(_BUCKET_IMOVEL).upload(
+        storage_path, conteudo, {"content-type": arquivo.content_type}
+    )
+    url = supabase.storage.from_(_BUCKET_IMOVEL).get_public_url(storage_path)
+
+    max_ordem = db.query(func.max(MidiaImovel.ordem)).filter(
+        MidiaImovel.imovel_id == imovel_id
+    ).scalar() or 0
+
+    midia = MidiaImovel(imovel_id=imovel_id, tipo_midia="imagem", url=url, ordem=max_ordem + 1)
+    db.add(midia)
+    db.commit()
+    db.refresh(midia)
+    return midia
+
+
+def deletar_imagem_imovel(midia_id: int, imovel_id: int, db: Session) -> None:
+    midia = db.query(MidiaImovel).filter(
+        MidiaImovel.id == midia_id,
+        MidiaImovel.imovel_id == imovel_id,
+        MidiaImovel.tipo_midia == "imagem",
+    ).first()
+    if not midia:
+        raise HTTPException(status_code=404, detail="Imagem não encontrada")
+
+    # Extrai o path do storage a partir da URL pública
+    base_url = f"{settings.SUPABASE_URL}/storage/v1/object/public/{_BUCKET_IMOVEL}/"
+    if midia.url and midia.url.startswith(base_url):
+        storage_path = midia.url[len(base_url):]
+        try:
+            get_supabase_client().storage.from_(_BUCKET_IMOVEL).remove([storage_path])
+        except Exception:
+            pass  # Arquivo já removido ou inexistente no storage
+
+    db.delete(midia)
+    db.commit()

@@ -15,3 +15,6 @@ import app.models.visualizacao_imovel
 import app.models.comissao
 import app.models.documento
 import app.models.whatsapp
+import app.models.configuracao
+import app.models.pagamento
+import app.models.cupom

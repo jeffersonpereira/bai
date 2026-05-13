@@ -1,0 +1,49 @@
+MELHORIAS NO PAINEL DO COMPRADOR
+- na tela de favoritos, o modelo padrão de visualização deve ser o de lista
+- adicionar um item no menu para que o usuário vissualize o seu histórico de visistas (similar ao que existe no painel do corretor) e remover essa informação do painel principal
+
+MELHORIAS NO PAINEL DO CORRETOR
+- adicionar um item no menu lateral que mostre as informações do plano contratado, assim como existe no painel da imobiliária
+- adicionar um item no menu lateral para que o usuário visualize seus anúncios
+- permitir que o usuário edite um anúncio
+- adicionar um item no menu lateral para acesso a tela de documentos (o menu lateral deve permanecer)
+- a página de anúncio deve ser igual a página de anúncio do painel da imobiliária
+- verificar erro [object Object] na tela de anúncio quando o usuário salva
+
+MELHORIAS NO PAINEL DA IMOBILIÁRIA
+- Permitir que uma proposta seja adicionada manualmente (funcionamento padrão)
+- colocar na página de anúncio a opção de fazer upload das fotos do imóvel, igual ao funcionamento existente no painel do corretor
+- Adicionar filtro na tela de equipes
+
+MELHORIAS NO PAINEL DA IMOBILIÁRIA
+- Possibilite a criação de novos usuários admin com a definição de permissões. O objetivo é personalizar as ações que o usuário criado terá
+
+PLANO COMERCIA
+- Modifique as informações do plano Pro para:
+Até 25 imóveis ativos
+CRM com funil de leads
+Landing page personalizada
+Notificação de lead por WhatsApp
+5 fotos por imóvel
+2 GB de armazenamento
+Relatório de acessos e conversão
+- Adicione o controle das ações do usuário de acordo com o plano escolhido por ele
+- O plano gratuito só poderá ter 2 imóveis ativos
+
+GERAL
+- A página de de anúncio deve ser padronizada
+- Adicione uma página para que os usuários dos planos pagos coloquem as informações de método de pagamento
+- Criar, no painel admin, a possibilidade de criar cupons de descontos; os descontos podem ser por tempo identerminado bem como podem ser até determinado período
+- Adicionar tela de WhatsApp para os planos que possuem o recurso e faça o recurso funcionar
+- organização do código e utilização de componentes reautilizáveis para facilitar a manutenção
+
+- criar uma página na qual o usuário consiga visualizar p ranking dos imóveis
+- Padronize cores, estilos de botões, tipografia, etc (trabalho de UI/UX e design) para o sistema fique bem hormônico
+- quando acesso a página de anúncio e de documentos o menu lateral some, mas ele deve permanecer 
+- Na tela de busca de imóveis verificar se as opções de filtro seguem um padrão lógico de escolha do usuário
+- Criar a página de política de privacidade
+- Criar a página de termo de uso
+- Criar a página de sobre nós
+- Criar a página nossa missão
+- Corrigir o acesso ao recurso do WhatsApp: mesmo estando no plano que permite o recurso o sistema não o está habilitando
+- Criar um sistema de auditoria das ações dos usuários; no painel admin será possível todas as ações dos usuários

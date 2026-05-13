@@ -6,7 +6,7 @@ from app.db.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.proposta import PropostaCriar, PropostaResposta, PaginatedProposals, ProposalStatusUpdate
 from app.services import proposta_service
-from app.core.deps import get_current_user, get_current_full_access, get_optional_user
+from app.core.deps import get_current_user, get_current_full_access, get_current_broker_or_above, get_optional_user
 
 router = APIRouter(prefix="/propostas", tags=["propostas"])
 
@@ -23,7 +23,7 @@ def create_proposal(
 @router.get("/", response_model=PaginatedProposals)
 def list_proposals_broker(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     situacao: Optional[str] = Query(None),

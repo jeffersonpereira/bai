@@ -11,7 +11,7 @@ interface UserAdmin {
   id: number;
   email: string;
   nome: string | null;
-  perfil: string;
+  perfil: "comprador" | "corretor" | "imobiliaria" | "admin";
   creci: string | null;
   ativo: boolean;
   criado_em: string;

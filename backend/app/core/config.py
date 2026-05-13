@@ -13,10 +13,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "https://bai-psi-neon.vercel.app"]
+    CORS_ORIGIN_REGEX: str = r"https://bai-psi-neon\.vercel\.app"
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
     WHATSAPP_NODE_URL: str = "http://127.0.0.1:40002"
     WHATSAPP_INTERNAL_KEY: str = "bai_internal_node_key_troque_em_producao"
+    ANTHROPIC_API_KEY: str = ""
 
     @field_validator("SECRET_KEY")
     @classmethod

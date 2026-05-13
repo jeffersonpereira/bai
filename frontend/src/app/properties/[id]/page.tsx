@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { use } from "react";
 import PhoneInput from "@/app/components/ui/PhoneInput";
+import CurrencyInput from "@/app/components/ui/CurrencyInput";
 import { useToast } from "@/app/components/ui/Toast";
+import { useAuth } from "@/app/context/AuthContext";
+import AuthGateModal from "@/app/components/AuthGateModal";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
@@ -183,10 +186,10 @@ function ProposalModal({
   onClose: () => void;
 }) {
   const { success, error: toastError } = useToast();
+  const [proposedPrice, setProposedPrice] = useState<number | undefined>(propertyPrice);
   const [form, setForm] = useState({
-    proposed_price: String(propertyPrice),
     payment_method: "financiamento",
-    financing_percentage: "80",
+    financing_percentage: 80,
     conditions: "",
     message: "",
     buyer_name: defaultName,
@@ -198,14 +201,18 @@ function ProposalModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!proposedPrice || proposedPrice <= 0) {
+      toastError("Informe o valor da proposta.");
+      return;
+    }
     setSubmitting(true);
     try {
       const token = localStorage.getItem("bai_token");
       const body = {
         imovel_id: Number(propertyId),
-        valor_ofertado: Number(form.proposed_price),
+        valor_ofertado: proposedPrice,
         forma_pagamento: form.payment_method,
-        percentual_financiamento: form.payment_method !== "avista" ? Number(form.financing_percentage) : null,
+        percentual_financiamento: form.payment_method !== "avista" ? form.financing_percentage : null,
         condicoes: form.conditions || null,
         mensagem: form.message || null,
         nome_comprador: form.buyer_name,
@@ -232,9 +239,19 @@ function ProposalModal({
   };
 
   const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-  const proposed = Number(form.proposed_price) || 0;
+  const proposed = proposedPrice ?? 0;
   const diff = proposed - propertyPrice;
   const diffPct = propertyPrice > 0 ? ((diff / propertyPrice) * 100).toFixed(1) : "0";
+
+  const financedAmt = form.payment_method !== "avista" ? (proposed * form.financing_percentage) / 100 : 0;
+  const downPayment = proposed - financedAmt;
+
+  const QUICK_PICKS = [
+    { label: "Preço pedido", factor: 1 },
+    { label: "−5%", factor: 0.95 },
+    { label: "−10%", factor: 0.90 },
+    { label: "−15%", factor: 0.85 },
+  ];
 
   return (
     <Modal onClose={onClose}>
@@ -251,21 +268,39 @@ function ProposalModal({
             {/* Price */}
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Valor da proposta</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
-                <input
-                  required
-                  type="number"
-                  min={1}
-                  step={1000}
-                  className="input-base pl-10"
-                  value={form.proposed_price}
-                  onChange={(e) => setForm({ ...form, proposed_price: e.target.value })}
-                />
+              <CurrencyInput
+                value={proposedPrice}
+                onChange={setProposedPrice}
+                required
+                className="input-base text-lg font-bold"
+              />
+              {/* Quick picks */}
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {QUICK_PICKS.map(({ label, factor }) => {
+                  const v = Math.round(propertyPrice * factor);
+                  const active = proposedPrice === v;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setProposedPrice(v)}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold border transition ${
+                        active
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
+              {/* Diff feedback */}
               {proposed > 0 && (
-                <p className={`text-xs mt-1.5 font-semibold ${diff < 0 ? "text-emerald-600" : diff > 0 ? "text-amber-600" : "text-slate-400"}`}>
-                  {diff === 0 ? "Igual ao preço pedido" : `${diff < 0 ? "▼" : "▲"} ${Math.abs(Number(diffPct))}% em relação a ${fmt(propertyPrice)}`}
+                <p className={`text-xs mt-2 font-semibold ${diff < 0 ? "text-emerald-600" : diff > 0 ? "text-amber-600" : "text-slate-400"}`}>
+                  {diff === 0
+                    ? "Igual ao preço pedido"
+                    : `${diff < 0 ? "▼" : "▲"} ${Math.abs(Number(diffPct))}% em relação a ${fmt(propertyPrice)}`}
                 </p>
               )}
             </div>
@@ -275,13 +310,13 @@ function ProposalModal({
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Forma de pagamento</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { val: "avista", label: "À Vista" },
-                  { val: "financiamento", label: "Financiamento" },
-                  { val: "misto", label: "Misto" },
-                ].map(({ val, label }) => (
+                  { val: "avista", label: "À Vista", icon: "💵" },
+                  { val: "financiamento", label: "Financiamento", icon: "🏦" },
+                  { val: "misto", label: "Misto", icon: "🔀" },
+                ].map(({ val, label, icon }) => (
                   <label
                     key={val}
-                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 cursor-pointer text-xs font-bold transition select-none ${
+                    className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border-2 cursor-pointer text-xs font-bold transition select-none ${
                       form.payment_method === val
                         ? "border-blue-600 bg-blue-50 text-blue-700"
                         : "border-slate-200 text-slate-500 hover:border-slate-300"
@@ -295,38 +330,51 @@ function ProposalModal({
                       onChange={() => setForm({ ...form, payment_method: val })}
                       className="sr-only"
                     />
+                    <span className="text-base">{icon}</span>
                     {label}
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* Financing % */}
+            {/* Financing % + breakdown */}
             {form.payment_method !== "avista" && (
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                  % a financiar ({form.financing_percentage}%)
-                </label>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-blue-700 uppercase tracking-widest">
+                    % a financiar
+                  </label>
+                  <span className="text-sm font-black text-blue-700">{form.financing_percentage}%</span>
+                </div>
                 <input
                   type="range"
                   min={10}
                   max={90}
                   step={5}
                   value={form.financing_percentage}
-                  onChange={(e) => setForm({ ...form, financing_percentage: e.target.value })}
+                  onChange={(e) => setForm({ ...form, financing_percentage: Number(e.target.value) })}
                   className="w-full accent-blue-600"
                 />
-                <div className="flex justify-between text-[10px] text-slate-400 font-medium mt-1">
-                  <span>10%</span>
-                  <span className="font-bold text-blue-600">{fmt((proposed * Number(form.financing_percentage)) / 100)} financiado</span>
-                  <span>90%</span>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <div className="text-slate-400 font-semibold mb-0.5">Entrada (à vista)</div>
+                    <div className="font-black text-slate-800 text-sm">{fmt(downPayment)}</div>
+                    <div className="text-blue-500 font-bold">{100 - form.financing_percentage}%</div>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <div className="text-slate-400 font-semibold mb-0.5">Financiado</div>
+                    <div className="font-black text-slate-800 text-sm">{fmt(financedAmt)}</div>
+                    <div className="text-blue-500 font-bold">{form.financing_percentage}%</div>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Conditions */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Condições especiais <span className="normal-case font-normal">(opcional)</span></label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                Condições especiais <span className="normal-case font-normal">(opcional)</span>
+              </label>
               <input
                 type="text"
                 placeholder="Ex: prazo de 30 dias para desocupação, reformas incluídas..."
@@ -338,7 +386,9 @@ function ProposalModal({
 
             {/* Message */}
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">Mensagem ao corretor <span className="normal-case font-normal">(opcional)</span></label>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                Mensagem ao corretor <span className="normal-case font-normal">(opcional)</span>
+              </label>
               <textarea
                 rows={3}
                 placeholder="Apresente-se e explique seu interesse..."
@@ -373,6 +423,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
   const propertyId = resolvedParams.id;
   const router = useRouter();
   const { success, error: toastError } = useToast();
+  const { user } = useAuth();
 
   const [imovel, setImovel] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
@@ -385,7 +436,34 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
 
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"visit" | "proposal" | null>(null);
   const [favStatus, setFavStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const handleScheduleVisitClick = () => {
+    if (user) {
+      setShowVisitModal(true);
+    } else {
+      setPendingAction("visit");
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleMakeProposalClick = () => {
+    if (user) {
+      setShowProposalModal(true);
+    } else {
+      setPendingAction("proposal");
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    if (pendingAction === "visit") setShowVisitModal(true);
+    if (pendingAction === "proposal") setShowProposalModal(true);
+    setPendingAction(null);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -744,7 +822,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
                     <div className="border-t border-white/10 pt-5 space-y-3">
                       {/* PRIMARY — Schedule visit */}
                       <button
-                        onClick={() => setShowVisitModal(true)}
+                        onClick={handleScheduleVisitClick}
                         className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -753,7 +831,7 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
 
                       {/* SECONDARY — Make proposal */}
                       <button
-                        onClick={() => setShowProposalModal(true)}
+                        onClick={handleMakeProposalClick}
                         className="w-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-black py-4 rounded-2xl transition flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -823,6 +901,12 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* ── Modals ── */}
+      <AuthGateModal
+        isOpen={showAuthModal}
+        onClose={() => { setShowAuthModal(false); setPendingAction(null); }}
+        onAuthSuccess={handleAuthSuccess}
+        context={pendingAction ?? "visit"}
+      />
       {showVisitModal && (
         <VisitModal
           propertyId={propertyId}

@@ -77,9 +77,24 @@ const Icon = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
     </svg>
   ),
+  globe: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+    </svg>
+  ),
+  whatsapp: (
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 0C5.373 0 0 5.373 0 12c0 2.126.554 4.124 1.523 5.855L.057 23.882l6.192-1.624A11.954 11.954 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.882 9.882 0 01-5.042-1.382l-.361-.214-3.737.979 1.001-3.649-.235-.374A9.859 9.859 0 012.106 12C2.106 6.58 6.58 2.106 12 2.106S21.894 6.58 21.894 12 17.42 21.894 12 21.894z"/>
+    </svg>
+  ),
   shield: (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  ),
+  trophy: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
     </svg>
   ),
   back: (
@@ -131,11 +146,12 @@ function getNavItems(role: string, parentId?: number): NavItem[] {
     return [
       { label: "Para Você", href: "/dashboard/buyer", icon: Icon.home, exact: true },
       { label: "Buscar Imóveis", href: "/search", icon: Icon.search, exact: true },
-      { label: "Favoritos", href: "/favorites", icon: Icon.heart, exact: true },
+      { label: "Ranking de Imóveis", href: "/dashboard/ranking", icon: Icon.trophy, exact: true },
+      { label: "Favoritos", href: "/dashboard/favorites", icon: Icon.heart, exact: true },
+      { label: "Histórico de Visitas", href: "/dashboard/buyer/visits", icon: Icon.calendar, exact: true },
       { label: "Perfil de Busca", href: "/dashboard/buyer/profile", icon: Icon.sliders },
       { label: "Financiamento", href: "/dashboard/buyer/financing", icon: Icon.money },
       { label: "Meus Anúncios", href: "/dashboard/seller", icon: Icon.building, dividerBefore: true },
-      { label: "Anunciar Imóvel", href: "/announce", icon: Icon.plus, primary: true },
     ];
   }
 
@@ -144,14 +160,19 @@ function getNavItems(role: string, parentId?: number): NavItem[] {
       { label: "Visão Geral", href: "/dashboard/admin", icon: Icon.chart, exact: true },
       { label: "Usuários", href: "/dashboard/admin/users", icon: Icon.users, dividerBefore: true },
       { label: "Auditoria de Imóveis", href: "/dashboard/admin/properties", icon: Icon.shield },
+      { label: "Cupons de Desconto", href: "/dashboard/admin/cupons", icon: Icon.tag },
+      { label: "Configurações", href: "/dashboard/admin/configuracoes", icon: Icon.sliders, dividerBefore: true },
     ];
   }
 
   // broker / agency
   const items: NavItem[] = [
     { label: "Visão Geral", href: "/dashboard/agency", icon: Icon.chart, exact: true },
-    { label: "Painel do Vendedor", href: "/dashboard/seller", icon: Icon.building, dividerBefore: true },
+    { label: "Ranking de Imóveis", href: "/dashboard/ranking", icon: Icon.trophy, exact: true },
+    { label: "Meus Anúncios", href: "/dashboard/seller", icon: Icon.building, dividerBefore: true },
+    { label: "Documentos", href: "/documents", icon: Icon.shield },
     { label: "CRM / Leads", href: "/dashboard/crm", icon: Icon.tag },
+    { label: "Propostas", href: "/dashboard/propostas", icon: Icon.handshake },
     { label: "Agenda de Visitas", href: "/dashboard/appointments", icon: Icon.calendar },
     { label: "Comissões", href: "/dashboard/comissoes", icon: Icon.dollar },
   ];
@@ -162,6 +183,13 @@ function getNavItems(role: string, parentId?: number): NavItem[] {
 
   if (role === "agency") {
     items.push({ label: "Equipe", href: "/dashboard/team", icon: Icon.team });
+  }
+
+  items.push({ label: "WhatsApp", href: "/dashboard/whatsapp", icon: Icon.whatsapp });
+  items.push({ label: "Minha Landing Page", href: "/dashboard/landing", icon: Icon.globe, dividerBefore: true });
+
+  if (role === "broker" || !parentId) {
+    items.push({ label: "Plano & Consumo", href: "/dashboard/cobranca", icon: Icon.chart });
   }
 
   items.push({

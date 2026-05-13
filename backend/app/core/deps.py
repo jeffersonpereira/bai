@@ -74,6 +74,13 @@ def get_current_full_access(current_user: Usuario = Depends(get_current_user)) -
     raise HTTPException(status_code=403, detail="Acesso restrito a agências e corretores independentes.")
 
 
+def get_current_broker_or_above(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+    """Allows admin, imobiliaria, and any corretor (independent or team member)."""
+    if current_user.perfil in ["admin", "imobiliaria", "corretor"]:
+        return current_user
+    raise HTTPException(status_code=403, detail="Acesso negado.")
+
+
 def get_current_admin(current_user: Usuario = Depends(get_current_user)) -> Usuario:
     if current_user.perfil != "admin":
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores.")

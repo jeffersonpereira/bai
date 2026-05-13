@@ -11,7 +11,12 @@ export default function AnnouncePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [owners, setOwners] = useState<any[]>([]);
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<{ used: number; max: number } | null>(null);
   const [mediaItems, setMediaItems] = useState<{url: string, media_type: string}[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageUploadErrors, setImageUploadErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -58,12 +63,22 @@ export default function AnnouncePage() {
       const token = localStorage.getItem("bai_token");
       if (!token) { router.push("/login"); return; }
       try {
-        const res = await fetch(`${API}/api/v1/crm/owners?limit=1000`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
+        const [ownersRes, consumoRes] = await Promise.all([
+          fetch(`${API}/api/v1/crm/owners?limit=1000`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/api/v1/cobranca/consumo`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (ownersRes.ok) {
+          const data = await ownersRes.json();
           setOwners(data.items || data);
+        }
+        if (consumoRes.ok) {
+          const consumo = await consumoRes.json();
+          const max = consumo.limites?.imoveis_ativos ?? null;
+          const used = consumo.imoveis_ativos ?? 0;
+          if (max !== null && used >= max) {
+            setQuotaBlocked(true);
+            setQuotaInfo({ used, max });
+          }
         }
       } catch (err) { console.error(err); }
     };
@@ -137,6 +152,42 @@ export default function AnnouncePage() {
     setMediaItems(updated);
   };
 
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const errors: string[] = [];
+    const valid: File[] = [];
+
+    for (const file of files) {
+      if (imageFiles.length + valid.length >= 4) {
+        errors.push("Máximo de 4 imagens permitido.");
+        break;
+      }
+      if (file.size > 1_048_576) {
+        errors.push(`"${file.name}" excede 1 MB.`);
+        continue;
+      }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        errors.push(`"${file.name}" não é JPEG, PNG ou WebP.`);
+        continue;
+      }
+      valid.push(file);
+    }
+
+    setImageUploadErrors(errors);
+    if (valid.length === 0) return;
+
+    const newValidPreviews = valid.map(f => URL.createObjectURL(f));
+    setImageFiles(prev => [...prev, ...valid].slice(0, 4));
+    setImagePreviews(prev => [...prev, ...newValidPreviews].slice(0, 4));
+    e.target.value = "";
+  };
+
+  const handleRemoveImageFile = (index: number) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
+    setImagePreviews(imagePreviews.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -186,6 +237,27 @@ export default function AnnouncePage() {
         throw new Error(data.detail || "Erro ao publicar anúncio");
       }
 
+      const imovelCriado = await res.json();
+
+      // Upload imagens selecionadas
+      const uploadErrors: string[] = [];
+      for (const file of imageFiles) {
+        const form = new FormData();
+        form.append("arquivo", file);
+        const imgRes = await fetch(`${API}/api/v1/imoveis/${imovelCriado.id}/imagens`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: form,
+        });
+        if (!imgRes.ok) {
+          const imgData = await imgRes.json().catch(() => ({}));
+          uploadErrors.push(imgData.detail || `Erro ao enviar "${file.name}"`);
+        }
+      }
+      if (uploadErrors.length > 0) {
+        setImageUploadErrors(uploadErrors);
+      }
+
       setSuccess(true);
       setTimeout(() => router.push("/dashboard/seller"), 2000);
     } catch (err: any) {
@@ -199,6 +271,33 @@ export default function AnnouncePage() {
   const inputCls = "w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition text-slate-800 placeholder:text-slate-400";
   const selectCls = inputCls + " appearance-none";
   const sectionCls = "bg-slate-50 rounded-2xl p-6 space-y-5";
+
+  if (quotaBlocked && quotaInfo) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-3xl">
+        <div className="bg-white border border-amber-200 rounded-[3rem] shadow-sm p-12 text-center">
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-3">Limite de anúncios atingido</h2>
+          <p className="text-slate-500 text-sm mb-2">
+            Você possui <span className="font-bold text-slate-700">{quotaInfo.used}</span> de <span className="font-bold text-slate-700">{quotaInfo.max}</span> imóveis ativos permitidos no seu plano atual.
+          </p>
+          <p className="text-slate-400 text-xs mb-8">Faça upgrade para publicar mais imóveis.</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="/dashboard/cobranca" className="px-8 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition text-sm shadow-lg shadow-blue-100">
+              Ver Planos
+            </a>
+            <a href="/dashboard/seller" className="px-8 py-3.5 border border-slate-200 text-slate-600 font-semibold rounded-2xl hover:bg-slate-50 transition text-sm">
+              Meus Anúncios
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
@@ -521,32 +620,86 @@ export default function AnnouncePage() {
         {/* Mídia */}
         <div className={sectionCls}>
           <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Imagens e Vídeos</h2>
-          <div>
-            <label className={labelCls}>URL da Imagem de Capa</label>
-            <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} className={inputCls} placeholder="https://..." />
-            <p className="mt-1.5 text-xs text-slate-400">Esta será a imagem em destaque nas listagens.</p>
+
+          {/* Upload de Imagens */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className={labelCls}>Fotos do Imóvel</label>
+                <p className="text-xs text-slate-400">Máximo 4 fotos · 1 MB cada · JPEG, PNG ou WebP</p>
+              </div>
+              {imageFiles.length < 4 && (
+                <label className="cursor-pointer text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">
+                  + Adicionar Foto
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageFileSelect}
+                  />
+                </label>
+              )}
+            </div>
+
+            {imageUploadErrors.length > 0 && (
+              <ul className="text-xs text-red-500 space-y-0.5">
+                {imageUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
+              </ul>
+            )}
+
+            {imagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200">
+                    <img src={src} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImageFile(i)}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {imagePreviews.length === 0 && (
+              <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+                <span className="text-2xl text-slate-300 mb-1">+</span>
+                <span className="text-sm text-slate-400">Clique para adicionar fotos</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={handleImageFileSelect}
+                />
+              </label>
+            )}
           </div>
 
+          {/* Vídeos e Documentos via URL */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-slate-600">Mídias Adicionais</label>
+              <label className="text-sm font-semibold text-slate-600">Vídeos e Documentos</label>
               <div className="flex gap-2">
-                <button type="button" onClick={() => handleAddMedia('image')} className="text-xs font-bold bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">+ Foto</button>
                 <button type="button" onClick={() => handleAddMedia('video')} className="text-xs font-bold bg-violet-50 text-violet-600 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition">+ Vídeo</button>
                 <button type="button" onClick={() => handleAddMedia('document')} className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition">+ Documento</button>
               </div>
             </div>
-            {mediaItems.map((item, idx) => (
+            {mediaItems.filter(m => m.media_type !== 'image').map((item, idx) => (
               <div key={idx} className="flex items-center gap-2">
-                <span className="text-lg">{item.media_type === 'video' ? '🎬' : '📸'}</span>
+                <span className="text-lg">{item.media_type === 'video' ? '🎬' : '📄'}</span>
                 <input
                   type="text"
                   value={item.url}
-                  onChange={e => handleMediaChange(idx, e.target.value)}
+                  onChange={e => handleMediaChange(mediaItems.indexOf(item), e.target.value)}
                   className={`flex-1 px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition ${item.media_type === 'document' ? 'border-emerald-100' : ''}`}
-                  placeholder={`URL ${item.media_type === 'video' ? 'do Vídeo (YouTube...)' : item.media_type === 'document' ? 'do Documento (PDF...)' : 'da Imagem'}`}
+                  placeholder={`URL ${item.media_type === 'video' ? 'do Vídeo (YouTube...)' : 'do Documento (PDF...)'}`}
                 />
-                <button type="button" onClick={() => handleRemoveMedia(idx)} className="text-slate-300 hover:text-red-400 text-xl px-1.5 transition">×</button>
+                <button type="button" onClick={() => handleRemoveMedia(mediaItems.indexOf(item))} className="text-slate-300 hover:text-red-400 text-xl px-1.5 transition">x</button>
               </div>
             ))}
           </div>

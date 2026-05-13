@@ -8,8 +8,9 @@ from app.schemas.lead import LeadCriar, LeadResposta, PaginatedLeads, ActivityCr
 from app.schemas.proprietario import ProprietarioCriar, ProprietarioResposta, PaginatedOwners
 from app.schemas.mandato import MandatoCriar
 from app.services import crm_service
-from app.core.deps import get_current_full_access
+from app.core.deps import get_current_full_access, get_current_broker_or_above
 from app.core.limiter import limiter
+from app.core.quota import verificar_quota_leads
 
 router = APIRouter(prefix="/crm", tags=["crm"])
 
@@ -60,7 +61,7 @@ def get_owners(
 @router.get("/leads/kanban")
 def get_leads_kanban(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
 ):
     return crm_service.get_leads_kanban(db, current_user)
 
@@ -68,7 +69,7 @@ def get_leads_kanban(
 @router.get("/leads", response_model=PaginatedLeads)
 def get_leads(
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: str | None = Query(None),
@@ -81,8 +82,9 @@ def get_leads(
 def create_lead(
     lead_in: LeadCriar,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
 ):
+    verificar_quota_leads(db, current_user)
     return crm_service.create_lead(db, lead_in, current_user.id)
 
 
@@ -97,9 +99,18 @@ def update_lead_status(
     lead_id: int,
     situacao: str,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
 ):
     return crm_service.update_lead_status(db, lead_id, situacao, current_user)
+
+
+@router.post("/leads/{lead_id}/claim")
+def claim_lead(
+    lead_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_broker_or_above),
+):
+    return crm_service.claim_lead(db, lead_id, current_user)
 
 
 # --- MANDATES ---
@@ -120,12 +131,12 @@ def create_lead_activity(
     lead_id: int,
     activity_in: ActivityCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(get_current_full_access),
+    current_user: Usuario = Depends(get_current_broker_or_above),
 ):
     return crm_service.add_activity(db, lead_id, activity_in, current_user)
 
 
 @router.get("/leads/{lead_id}/activities", response_model=List[ActivityResponse],
-            dependencies=[Depends(get_current_full_access)])
+            dependencies=[Depends(get_current_broker_or_above)])
 def get_lead_activities(lead_id: int, db: Session = Depends(get_db)):
     return crm_service.get_activities(db, lead_id)

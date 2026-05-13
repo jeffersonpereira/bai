@@ -118,6 +118,7 @@ export default function Header() {
   }, [mobileOpen]);
 
   const handleScrape = useCallback(async () => {
+    if (!token) return;
     setIsScraping(true);
     try {
       await fetch(
@@ -204,13 +205,15 @@ export default function Header() {
               <div aria-hidden="true" className="h-9 w-9 rounded-full skeleton" />
             ) : user ? (
               <div className="flex items-center gap-3">
-                {/* CTA Anunciar (desktop) */}
-                <Link
-                  href={dashboardHref}
-                  className="hidden lg:inline-flex items-center px-5 h-11 bg-blue-600 text-white text-sm font-bold rounded-full shadow-sm hover:bg-blue-700 transition-colors active:scale-95"
-                >
-                  Anunciar Imóvel
-                </Link>
+                {/* CTA Anunciar (desktop) — só para roles que podem anunciar */}
+                {["broker", "agency"].includes(user.role) && (
+                  <Link
+                    href="/announce"
+                    className="hidden lg:inline-flex items-center px-5 h-11 bg-blue-600 text-white text-sm font-bold rounded-full shadow-sm hover:bg-blue-700 transition-colors active:scale-95"
+                  >
+                    Anunciar Imóvel
+                  </Link>
+                )}
 
                 {/* Avatar com dropdown */}
                 <div className="relative" ref={dropdownRef}>

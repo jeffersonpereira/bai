@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 # ── slug helper ───────────────────────────────────────────────────────────────
 
-from app.services.property_service import _make_slug
+from app.services.imovel_service import _make_slug
 
 
 class TestMakeSlug:
@@ -70,40 +70,40 @@ def client():
 
 class TestBboxValidation:
     def test_missing_bbox_returns_422(self, client):
-        r = client.get("/api/v1/properties/map")
+        r = client.get("/api/v1/imoveis/map")
         assert r.status_code == 422
 
     def test_wrong_number_of_bbox_values(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-23.6,-46.7,-23.5")
+        r = client.get("/api/v1/imoveis/map?bbox=-23.6,-46.7,-23.5")
         assert r.status_code == 422
         assert "4 valores" in r.json()["detail"]
 
     def test_non_numeric_bbox(self, client):
-        r = client.get("/api/v1/properties/map?bbox=a,b,c,d")
+        r = client.get("/api/v1/imoveis/map?bbox=a,b,c,d")
         assert r.status_code == 422
         assert "numéricos" in r.json()["detail"]
 
     def test_south_greater_than_north(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-23.5,-46.7,-23.6,-46.6")
+        r = client.get("/api/v1/imoveis/map?bbox=-23.5,-46.7,-23.6,-46.6")
         assert r.status_code == 422
         assert "south" in r.json()["detail"]
 
     def test_south_equals_north(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-23.5,-46.7,-23.5,-46.6")
+        r = client.get("/api/v1/imoveis/map?bbox=-23.5,-46.7,-23.5,-46.6")
         assert r.status_code == 422
 
     def test_latitude_out_of_range(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-91,-46.7,-23.5,-46.6")
+        r = client.get("/api/v1/imoveis/map?bbox=-91,-46.7,-23.5,-46.6")
         assert r.status_code == 422
         assert "Latitude" in r.json()["detail"]
 
     def test_longitude_out_of_range(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-23.6,-181,-23.5,-46.6")
+        r = client.get("/api/v1/imoveis/map?bbox=-23.6,-181,-23.5,-46.6")
         assert r.status_code == 422
         assert "Longitude" in r.json()["detail"]
 
     def test_valid_bbox_returns_200(self, client):
-        r = client.get("/api/v1/properties/map?bbox=-23.7,-46.8,-23.4,-46.5")
+        r = client.get("/api/v1/imoveis/map?bbox=-23.7,-46.8,-23.4,-46.5")
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
@@ -118,9 +118,9 @@ class TestGetMapPropertiesFilters:
 
     def _fake_row(self, **kw):
         defaults = dict(
-            id=1, lat=Decimal("-23.56"), lng=Decimal("-46.68"),
-            price=500000.0, property_type="apartamento",
-            image_url="http://img/1.jpg", title="Apto Pinheiros",
+            id=1, latitude=Decimal("-23.56"), longitude=Decimal("-46.68"),
+            preco=500000.0, tipo_imovel="apartamento",
+            url_imagem="http://img/1.jpg", titulo="Apto Pinheiros",
         )
         defaults.update(kw)
         return SimpleNamespace(**defaults)
@@ -134,12 +134,12 @@ class TestGetMapPropertiesFilters:
         db.query.return_value = query_chain
         return db
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_returns_light_fields_only(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
         db = self._mock_db([self._fake_row()])
         # Clear cache to avoid pollution from previous tests
-        import app.services.property_service as svc
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         result = svc.get_map_properties(db, -23.7, -46.8, -23.4, -46.5)
@@ -147,32 +147,32 @@ class TestGetMapPropertiesFilters:
         item = result[0]
         assert set(item.keys()) == {"id", "lat", "lng", "price", "type", "thumbnail_url", "slug"}
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_lat_lng_converted_to_float(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
-        db = self._mock_db([self._fake_row(lat=Decimal("-23.5614"), lng=Decimal("-46.6858"))])
-        import app.services.property_service as svc
+        db = self._mock_db([self._fake_row(latitude=Decimal("-23.5614"), longitude=Decimal("-46.6858"))])
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         result = svc.get_map_properties(db, -23.7, -46.8, -23.4, -46.5)
         assert isinstance(result[0]["lat"], float)
         assert isinstance(result[0]["lng"], float)
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_empty_result_when_no_properties(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
         db = self._mock_db([])
-        import app.services.property_service as svc
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         result = svc.get_map_properties(db, -23.7, -46.8, -23.4, -46.5)
         assert result == []
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_thumbnail_url_maps_to_image_url(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
-        db = self._mock_db([self._fake_row(image_url="https://cdn/foto.jpg")])
-        import app.services.property_service as svc
+        db = self._mock_db([self._fake_row(url_imagem="https://cdn/foto.jpg")])
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         result = svc.get_map_properties(db, -23.7, -46.8, -23.4, -46.5)
@@ -184,15 +184,15 @@ class TestGetMapPropertiesFilters:
 class TestMapCache:
     def _fake_row(self):
         return SimpleNamespace(
-            id=99, lat=Decimal("-23.56"), lng=Decimal("-46.68"),
-            price=300000.0, property_type="casa",
-            image_url=None, title="Casa Teste",
+            id=99, latitude=Decimal("-23.56"), longitude=Decimal("-46.68"),
+            preco=300000.0, tipo_imovel="casa",
+            url_imagem=None, titulo="Casa Teste",
         )
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_second_call_uses_cache(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
-        import app.services.property_service as svc
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         db = MagicMock()
@@ -208,10 +208,10 @@ class TestMapCache:
         # DB queried only once despite two service calls
         assert db.query.call_count == 1
 
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.settings")
     def test_different_bbox_different_cache_entries(self, mock_settings):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
-        import app.services.property_service as svc
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         db = MagicMock()
@@ -226,11 +226,11 @@ class TestMapCache:
 
         assert db.query.call_count == 2
 
-    @patch("app.services.property_service.time_module")
-    @patch("app.services.property_service.settings")
+    @patch("app.services.imovel_service.time_module")
+    @patch("app.services.imovel_service.settings")
     def test_cache_expires_after_30_seconds(self, mock_settings, mock_time):
         mock_settings.DATABASE_URL = "sqlite:///./test.db"
-        import app.services.property_service as svc
+        import app.services.imovel_service as svc
         svc._MAP_CACHE.clear()
 
         db = MagicMock()

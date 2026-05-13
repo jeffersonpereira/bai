@@ -15,7 +15,8 @@ const fmt = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function ComissoesPage() {
-  const { token } = useAuth();
+  const { token, user, isTeamBroker } = useAuth();
+  const isBroker = user?.role === "broker";
   const { success, error: toastError } = useToast();
 
   const [resumo, setResumo] = useState<any>(null);
@@ -138,12 +139,17 @@ export default function ComissoesPage() {
           <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Comissões</h1>
           <p className="text-slate-500 font-medium">Controle financeiro das comissões da equipe.</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200 self-start md:self-auto"
-        >
-          + Registrar Comissão
-        </button>
+        {!isTeamBroker && (
+          <button
+            onClick={() => {
+              setForm(prev => ({ ...prev, corretor_id: isBroker && user ? user.id.toString() : "" }));
+              setShowForm(true);
+            }}
+            className="bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200 self-start md:self-auto"
+          >
+            + Registrar Comissão
+          </button>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -193,17 +199,23 @@ export default function ComissoesPage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1.5">Corretor</label>
-                <select
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-slate-800"
-                  value={form.corretor_id}
-                  onChange={e => setForm({ ...form, corretor_id: e.target.value })}
-                >
-                  <option value="">Selecione um corretor...</option>
-                  {brokers.map((b: any) => (
-                    <option key={b.id} value={b.id}>{b.name || b.nome}</option>
-                  ))}
-                </select>
+                {isBroker ? (
+                  <div className="w-full bg-slate-100 border border-slate-200 px-4 py-2.5 rounded-xl text-slate-700 font-semibold text-sm">
+                    {user?.name} <span className="text-slate-400 font-normal">(você)</span>
+                  </div>
+                ) : (
+                  <select
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-slate-800"
+                    value={form.corretor_id}
+                    onChange={e => setForm({ ...form, corretor_id: e.target.value })}
+                  >
+                    <option value="">Selecione um corretor...</option>
+                    {brokers.map((b: any) => (
+                      <option key={b.id} value={b.id}>{b.name || b.nome}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-600 mb-1.5">Percentual (%)</label>

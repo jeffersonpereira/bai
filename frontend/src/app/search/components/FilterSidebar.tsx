@@ -122,6 +122,24 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
           </h2>
 
           <form className="space-y-7 text-sm" onSubmit={handleApply}>
+            {/* Tipo de Negócio — primeiro: intenção do usuário */}
+            <div>
+              <label className="block text-slate-500 font-semibold mb-3 text-[11px] uppercase tracking-wider">Negócio</label>
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl">
+                {['venda', 'aluguel', 'temporada'].map((type) => {
+                  const isActive = (!params.listing_type && type === 'venda') || params.listing_type === type;
+                  return (
+                    <label key={type} className={`cursor-pointer text-center py-2.5 rounded-lg transition-all text-xs font-bold capitalize select-none ${isActive ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                      <input type="radio" name="listing_type" value={type} checked={isActive} onChange={handleChange} className="hidden" />
+                      {type}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100"></div>
+
             {/* Localização */}
             <fieldset className="space-y-4">
               <legend className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Localização</legend>
@@ -139,46 +157,13 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
               </div>
               <div>
                 <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Bairro(s)</label>
-                <RegionTagsInput 
-                  name="neighborhood" 
-                  value={params.neighborhood || ""} 
+                <RegionTagsInput
+                  name="neighborhood"
+                  value={params.neighborhood || ""}
                   onChange={(val: string) => handleCustomChange('neighborhood', val)}
-                  placeholder="Ex: Moema, Pinheiros" 
+                  placeholder="Ex: Moema, Pinheiros"
                   suggestions={params.city ? locations[params.city] || [] : []}
                 />
-              </div>
-            </fieldset>
-
-            <div className="border-t border-slate-100"></div>
-
-            {/* Tipo de Negócio */}
-            <div>
-              <label className="block text-slate-500 font-semibold mb-3 text-[11px] uppercase tracking-wider">Negócio</label>
-              <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl">
-                {['venda', 'aluguel', 'temporada'].map((type) => {
-                  const isActive = (!params.listing_type && type === 'venda') || params.listing_type === type;
-                  return (
-                    <label key={type} className={`cursor-pointer text-center py-2.5 rounded-lg transition-all text-xs font-bold capitalize select-none ${isActive ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                      <input type="radio" name="listing_type" value={type} checked={isActive} onChange={handleChange} className="hidden" />
-                      {type}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Faixa de Preço */}
-            <fieldset>
-              <legend className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Faixa de Preço</legend>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Mínimo</label>
-                  <CurrencyInput name="min_price" value={String(params.min_price ?? "")} onChange={(val) => handleCustomChange('min_price', val)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
-                </div>
-                <div>
-                  <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Máximo</label>
-                  <CurrencyInput name="max_price" value={String(params.max_price ?? "")} onChange={(val) => handleCustomChange('max_price', val)} placeholder="Ilimitado" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
-                </div>
               </div>
             </fieldset>
 
@@ -256,9 +241,24 @@ export default function FilterSidebar({ initialParams, locations, isMobileOpen, 
               </div>
             </fieldset>
 
+            <div className="border-t border-slate-100"></div>
 
+            {/* Faixa de Preço — por último: refinamento final */}
+            <fieldset>
+              <legend className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Faixa de Preço</legend>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Mínimo</label>
+                  <CurrencyInput name="min_price" value={String(params.min_price ?? "")} onChange={(val) => handleCustomChange('min_price', val)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1.5 text-[11px] uppercase tracking-wider">Máximo</label>
+                  <CurrencyInput name="max_price" value={String(params.max_price ?? "")} onChange={(val) => handleCustomChange('max_price', val)} placeholder="Ilimitado" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-slate-900 font-medium" />
+                </div>
+              </div>
+            </fieldset>
 
-            <div className="pt-4  space-y-3 pb-8 md:pb-0">
+            <div className="pt-4 space-y-3 pb-8 md:pb-0">
               <button 
                 type="submit" 
                 className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3.5 rounded-full font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 tracking-wide text-[15px]"

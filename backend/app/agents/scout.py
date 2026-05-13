@@ -1,7 +1,15 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
-from app.models.property import Property
 from datetime import datetime
+
+# LEGADO: ScoutAgent foi escrito para o modelo Property (inglês) que não existe mais.
+# O modelo atual é Imovel em app.models.imovel. Este agente está desativado até ser portado.
+# Para reativar: substituir Property por Imovel e ajustar os nomes dos campos (city→cidade,
+# neighborhood→bairro, property_type→tipo_imovel, price→preco, status→status, is_star→is_star).
+try:
+    from app.models.imovel import Imovel as Property  # ponte temporária — campos ainda incompatíveis
+except ImportError:
+    Property = None  # type: ignore
 
 class ScoutAgent:
     def __init__(self):

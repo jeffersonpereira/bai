@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, backref
 from app.db.database import Base
@@ -20,6 +20,15 @@ class Usuario(Base):
     ativo = Column(Boolean, default=True)
     imobiliaria_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Landing page pública (planos pro/premium)
+    slug = Column(String(100), unique=True, index=True, nullable=True)
+    bio = Column(Text, nullable=True)
+    foto_perfil_url = Column(String(500), nullable=True)
+    cor_primaria = Column(String(7), default="#1d4ed8")
+    cor_secundaria = Column(String(7), default="#1e293b")
+    redes_sociais = Column(JSON, nullable=True)
+    landing_ativa = Column(Boolean, default=False)
 
     corretores = relationship("Usuario", backref=backref("imobiliaria", remote_side=[id]))
 

@@ -18,6 +18,7 @@ def get_stats(db: Session) -> AdminStats:
         total_properties=db.query(Imovel).count(),
         total_leads=db.query(Lead).count(),
         recent_registrations=db.query(Usuario).filter(Usuario.criado_em >= one_week_ago).count(),
+        premium_users=db.query(Usuario).filter(Usuario.tipo_plano.in_(["pro", "premium"])).count(),
     )
 
 

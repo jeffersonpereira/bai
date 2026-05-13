@@ -7,8 +7,9 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: string;
+  role: "user" | "broker" | "agency" | "admin";
   parent_id?: number;
+  tipo_plano: string | null;
 }
 
 interface AuthContextType {
@@ -16,6 +17,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isTeamBroker: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -47,18 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const raw = await response.json();
         const userData: User = {
-          id:        raw.id,
-          name:      raw.nome ?? raw.name ?? "",
-          email:     raw.email,
-          role:      PERFIL_TO_ROLE[raw.perfil] ?? raw.perfil ?? "user",
-          parent_id: raw.imobiliaria_id ?? raw.parent_id,
+          id:         raw.id,
+          name:       raw.nome ?? raw.name ?? "",
+          email:      raw.email,
+          role:       (PERFIL_TO_ROLE[raw.perfil] ?? "user") as "user" | "broker" | "agency" | "admin",
+          parent_id:  raw.imobiliaria_id ?? raw.parent_id,
+          tipo_plano: raw.tipo_plano ?? null,
         };
         setUser(userData);
         return userData;
       } else {
-        // Se o token for inválido (401), desloga
         if (response.status === 401) {
-          logout();
+          localStorage.removeItem("bai_token");
+          setToken(null);
+          setUser(null);
+          router.push("/");
         }
         return null;
       }
@@ -66,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Erro ao buscar usuário:", error);
       return null;
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("bai_token");
@@ -99,6 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isTeamBroker = !!user && user.role === "broker" && !!user.parent_id;
+
   return (
     <AuthContext.Provider
       value={{
@@ -106,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         token,
         loading,
         isAuthenticated: !!user,
+        isTeamBroker,
         login,
         logout,
         refreshUser,

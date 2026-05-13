@@ -85,6 +85,39 @@ def confirmar_checkout(
     return {**result, "requer_confirmacao": False, "client_secret": None, "subscription_id": body.subscription_id}
 
 
+@router.post("/portal", response_model=dict)
+def get_portal_url(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Retorna URL do Stripe Customer Portal para o usuário gerenciar pagamento/assinatura."""
+    from app.models.pagamento import Pagamento
+    gw = configuracao_service.obter_gateway_raw(db)
+    if gw.get("gateway_tipo") != "stripe" or not gw.get("gateway_chave_privada"):
+        raise HTTPException(status_code=400, detail="Gateway Stripe não configurado.")
+    pag = (
+        db.query(Pagamento)
+        .filter_by(usuario_id=current_user.id, status="aprovado")
+        .order_by(Pagamento.id.desc())
+        .first()
+    )
+    if not pag or not pag.referencia_externa:
+        raise HTTPException(status_code=404, detail="Nenhuma assinatura ativa encontrada.")
+    try:
+        import stripe
+        stripe.api_key = gw["gateway_chave_privada"]
+        sub = stripe.Subscription.retrieve(pag.referencia_externa)
+        customer_id = sub.get("customer") if isinstance(sub, dict) else sub.customer
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{gw.get('gateway_return_url', 'http://localhost:3000')}/dashboard/cobranca",
+        )
+        portal_url = session.get("url") if isinstance(session, dict) else session.url
+        return {"url": portal_url}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Erro ao criar portal Stripe: {e}")
+
+
 @router.post("/webhook/stripe")
 async def webhook_stripe(request: Request, db: Session = Depends(get_db)):
     """

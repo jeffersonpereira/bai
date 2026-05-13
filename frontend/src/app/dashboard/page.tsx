@@ -65,7 +65,7 @@ export default function DashboardPage() {
     try {
       const url = new URL(`${API}/api/v1/imoveis/user/me`);
       url.searchParams.append("page", page.toString());
-      if (filterTitle) url.searchParams.append("title", filterTitle);
+      if (filterTitle) url.searchParams.append("titulo", filterTitle);
       if (filterStatus) url.searchParams.append("status", filterStatus);
 
       const propRes = await fetch(url.toString(), { 
@@ -110,7 +110,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
-        setProperties(prev => prev.map((p: any) => p.id === id ? { ...p, status: newStatus } : p));
+        setProperties(prev => prev.map((p: any) => p.id === id ? { ...p, situacao: newStatus } : p));
       } else {
         const errorData = await res.json();
         toastError(errorData.detail || "Erro ao alterar status");
@@ -151,9 +151,11 @@ export default function DashboardPage() {
                 ⚡ Cockpit Global
               </Link>
             )}
-            <Link href="/announce" className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-              <span>+</span> Novo Anúncio
-            </Link>
+            {["broker", "agency"].includes(user?.role ?? "") && (
+              <Link href="/announce" className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+                <span>+</span> Novo Anúncio
+              </Link>
+            )}
           </div>
         </div>
 
@@ -284,7 +286,7 @@ export default function DashboardPage() {
                 ? "Tente ajustar os filtros para encontrar o que procura."
                 : "Publique seu primeiro imóvel e comece a receber leads de compradores interessados."}
             </p>
-            {!(filterTitle || filterStatus) && (
+            {!(filterTitle || filterStatus) && ["broker", "agency"].includes(user?.role ?? "") && (
               <Link href="/announce" className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-200">
                 <span>+</span> Publicar Primeiro Imóvel
               </Link>

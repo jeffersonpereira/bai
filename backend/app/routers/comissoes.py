@@ -5,14 +5,14 @@ from app.db.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.comissao import ComissaoCreate, ComissaoStatusUpdate
 from app.services import comissao_service
-from app.core.deps import get_current_agency
+from app.core.deps import get_current_agency, get_current_broker_or_above
 
 router = APIRouter(prefix="/comissoes", tags=["comissoes"])
 
 
 @router.get("/resumo")
 def get_resumo(
-    current_user: Usuario = Depends(get_current_agency),
+    current_user: Usuario = Depends(get_current_broker_or_above),
     db: Session = Depends(get_db),
 ):
     return comissao_service.get_resumo(db, current_user)
@@ -21,7 +21,7 @@ def get_resumo(
 @router.get("/")
 def list_comissoes(
     situacao: str | None = Query(None),
-    current_user: Usuario = Depends(get_current_agency),
+    current_user: Usuario = Depends(get_current_broker_or_above),
     db: Session = Depends(get_db),
 ):
     return comissao_service.list_comissoes(db, current_user, situacao)

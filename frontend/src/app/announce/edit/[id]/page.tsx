@@ -16,11 +16,15 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
   const [success, setSuccess] = useState(false);
   const [owners, setOwners] = useState<any[]>([]);
   const [mediaItems, setMediaItems] = useState<{url: string, media_type: string}[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageUploadErrors, setImageUploadErrors] = useState<string[]>([]);
 
   // Form state
   const [formData, setFormData] = useState({
     title: "",
     price: "",
+    valor_aluguel: "",
     listing_type: "venda",
     property_type: "apartamento",
     city: "",
@@ -35,6 +39,11 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
     actual_owner_id: "",
     commission_percentage: "",
     full_address: "",
+  });
+  const [atributosExtras, setAtributosExtras] = useState({
+    piscina: false, varanda: false, academia: false, churrasqueira: false,
+    portaria_24h: false, elevador: false, pet_friendly: false, mobiliado: false,
+    ar_condicionado: false, energia_solar: false,
   });
   const [address, setAddress] = useState<AddressValue>(emptyAddress());
   const [availability, setAvailability] = useState<{day_of_week: number, start_time: string, end_time: string}[]>([]);
@@ -68,6 +77,7 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
             title: p.titulo || "",
             description: p.descricao || "",
             price: p.preco ? p.preco.toString() : "",
+            valor_aluguel: p.valor_aluguel ? p.valor_aluguel.toString() : "",
             area: p.area ? p.area.toString() : "",
             bedrooms: p.quartos != null ? p.quartos.toString() : "",
             bathrooms: p.banheiros != null ? p.banheiros.toString() : "",
@@ -82,6 +92,9 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
             property_type: p.tipo_imovel || "apartamento",
             full_address: p.endereco_completo || "",
           });
+          if (p.atributos_extras) {
+            setAtributosExtras(prev => ({ ...prev, ...p.atributos_extras }));
+          }
           setAddress({
             cep: "",
             state: p.estado || "",
@@ -139,6 +152,42 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
     } catch (err) { console.error(err); }
   };
 
+  const handleImageFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const errors: string[] = [];
+    const valid: File[] = [];
+
+    for (const file of files) {
+      if (imageFiles.length + valid.length >= 4) {
+        errors.push("Máximo de 4 imagens permitido.");
+        break;
+      }
+      if (file.size > 1_048_576) {
+        errors.push(`"${file.name}" excede 1 MB.`);
+        continue;
+      }
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        errors.push(`"${file.name}" não é JPEG, PNG ou WebP.`);
+        continue;
+      }
+      valid.push(file);
+    }
+
+    setImageUploadErrors(errors);
+    if (valid.length === 0) return;
+
+    const newValidPreviews = valid.map(f => URL.createObjectURL(f));
+    setImageFiles(prev => [...prev, ...valid].slice(0, 4));
+    setImagePreviews(prev => [...prev, ...newValidPreviews].slice(0, 4));
+    e.target.value = "";
+  };
+
+  const handleRemoveImageFile = (index: number) => {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
+    setImagePreviews(imagePreviews.filter((_, i) => i !== index));
+  };
+
   const handleAddMedia = (type: string) => {
     setMediaItems([...mediaItems, { url: "", media_type: type }]);
   };
@@ -178,7 +227,10 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
           titulo: formData.title,
           descricao: formData.description || null,
           preco: parseFloat(formData.price),
-          valor_aluguel: null,
+          valor_aluguel: formData.valor_aluguel ? parseFloat(formData.valor_aluguel) : null,
+          atributos_extras: Object.keys(Object.fromEntries(Object.entries(atributosExtras).filter(([, v]) => v))).length > 0
+            ? Object.fromEntries(Object.entries(atributosExtras).filter(([, v]) => v))
+            : null,
           area: formData.area ? parseFloat(formData.area) : null,
           quartos: formData.bedrooms ? parseInt(formData.bedrooms) : null,
           banheiros: formData.bathrooms ? parseInt(formData.bathrooms) : null,
@@ -204,11 +256,36 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || "Erro ao atualizar anúncio");
+        const detail = data.detail;
+        const msg = Array.isArray(detail)
+          ? detail.map((e: any) => `${e.loc?.join(".")}: ${e.msg}`).join(" | ")
+          : typeof detail === "string"
+          ? detail
+          : "Erro ao atualizar anúncio";
+        throw new Error(msg);
+      }
+
+      // Upload novas imagens selecionadas
+      const uploadErrors: string[] = [];
+      for (const file of imageFiles) {
+        const form = new FormData();
+        form.append("arquivo", file);
+        const imgRes = await fetch(`${API}/api/v1/imoveis/${propertyId}/imagens`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        });
+        if (!imgRes.ok) {
+          const imgData = await imgRes.json().catch(() => ({}));
+          uploadErrors.push(imgData.detail || `Erro ao enviar "${file.name}"`);
+        }
+      }
+      if (uploadErrors.length > 0) {
+        setImageUploadErrors(uploadErrors);
       }
 
       setSuccess(true);
-      setTimeout(() => router.push("/search"), 2000);
+      setTimeout(() => router.push("/dashboard/seller"), 2000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -244,6 +321,13 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
                 <CurrencyInput value={formData.price} onChange={(val) => setFormData({...formData, price: val !== undefined ? String(val) : ""})} required className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="Ex: 500000" />
               </div>
             </div>
+
+            {(formData.listing_type === "aluguel" || formData.listing_type === "temporada") && (
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Valor do Aluguel (R$)</label>
+                <CurrencyInput value={formData.valor_aluguel} onChange={(val) => setFormData({...formData, valor_aluguel: val !== undefined ? String(val) : ""})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="Ex: 2500" />
+              </div>
+            )}
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
@@ -302,6 +386,21 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Vagas Garagem</label>
                 <input type="number" name="garage_spaces" value={formData.garage_spaces} onChange={handleChange} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="0" />
               </div>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-slate-100 space-y-6">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+              Atributos Extras
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {(Object.keys(atributosExtras) as (keyof typeof atributosExtras)[]).map((key) => (
+                <label key={key} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition text-sm font-medium ${atributosExtras[key] ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-blue-200"}`}>
+                  <input type="checkbox" checked={atributosExtras[key]} onChange={() => setAtributosExtras(prev => ({ ...prev, [key]: !prev[key] }))} className="rounded" />
+                  {key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                </label>
+              ))}
             </div>
           </div>
 
@@ -460,6 +559,64 @@ export default function EditAnnouncePage({ params }: { params: Promise<{ id: str
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">URL da Imagem de Capa Principal</label>
               <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition" placeholder="https://..." />
               <p className="mt-2 text-[10px] text-slate-400">Esta será a imagem em destaque nas listagens.</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Fotos do Imóvel</label>
+                  <p className="text-[10px] text-slate-400">Máximo 4 fotos · 1 MB cada · JPEG, PNG ou WebP</p>
+                </div>
+                {imageFiles.length < 4 && (
+                  <label className="cursor-pointer text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">
+                    + Adicionar Foto
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      className="hidden"
+                      onChange={handleImageFileSelect}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {imageUploadErrors.length > 0 && (
+                <ul className="text-xs text-red-500 space-y-0.5">
+                  {imageUploadErrors.map((err, i) => <li key={i}>{err}</li>)}
+                </ul>
+              )}
+
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {imagePreviews.map((src, i) => (
+                    <div key={i} className="relative group aspect-square rounded-xl overflow-hidden border border-slate-200">
+                      <img src={src} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImageFile(i)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                      >
+                        x
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {imagePreviews.length === 0 && (
+                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition">
+                  <span className="text-2xl text-slate-300 mb-1">+</span>
+                  <span className="text-sm text-slate-400">Clique para adicionar fotos</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageFileSelect}
+                  />
+                </label>
+              )}
             </div>
             
             <div className="pt-4 space-y-4">

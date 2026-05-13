@@ -2,6 +2,7 @@
 
 import ProtectedRoute from "../components/ProtectedRoute";
 import DashboardSidebar from "../components/DashboardSidebar";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 export default function DashboardLayout({
   children,
@@ -13,7 +14,9 @@ export default function DashboardLayout({
       <div className="flex min-h-[calc(100vh-4rem)]">
         <DashboardSidebar />
         <main className="flex-1 min-w-0 bg-slate-50">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </ProtectedRoute>

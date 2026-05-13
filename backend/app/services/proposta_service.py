@@ -45,6 +45,7 @@ def get_proposals_for_broker(
         broker_ids = [b.id for b in current_user.corretores] + [current_user.id]
         query = query.filter(Proposta.corretor_id.in_(broker_ids))
     else:
+        # corretor independente ou membro de equipe — vê só as suas
         query = query.filter(Proposta.corretor_id == current_user.id)
 
     if situacao:
@@ -58,7 +59,11 @@ def get_proposals_for_broker(
 
 
 def get_proposals_for_buyer(db: Session, user_id: int, skip: int, limit: int) -> dict:
-    query = db.query(Proposta).filter(Proposta.comprador_id == user_id)
+    from sqlalchemy import or_
+    # propostas que fez como comprador + propostas recebidas no imóvel que anunciou
+    query = db.query(Proposta).filter(
+        or_(Proposta.comprador_id == user_id, Proposta.corretor_id == user_id)
+    )
     total = query.count()
     items = query.order_by(Proposta.criado_em.desc()).offset(skip).limit(limit).all()
     return {"items": items, "total": total, "page": (skip // limit) + 1, "limit": limit}
@@ -78,11 +83,13 @@ def update_proposal_status(
         raise HTTPException(status_code=404, detail="Proposta não encontrada")
 
     is_broker = current_user.perfil in ("admin", "imobiliaria", "corretor")
-    is_owner = proposal.comprador_id == current_user.id
+    is_proposer = proposal.comprador_id == current_user.id
+    # comprador que registrou o anúncio do imóvel age como dono do lado vendedor
+    is_announcer = proposal.corretor_id == current_user.id and current_user.perfil == "comprador"
 
-    if not is_broker and not is_owner:
+    if not is_broker and not is_proposer and not is_announcer:
         raise HTTPException(status_code=403, detail="Sem permissão para alterar esta proposta")
-    if is_owner and not is_broker and status_in.situacao != "recusada":
+    if is_proposer and not is_broker and not is_announcer and status_in.situacao != "recusada":
         raise HTTPException(status_code=403, detail="Compradores só podem cancelar (recusar) a própria proposta")
 
     proposal.situacao = status_in.situacao

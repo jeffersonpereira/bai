@@ -20,12 +20,13 @@ export default function AdminPropertiesPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || user.role !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
+    if (!user || user.role !== "admin") router.push("/dashboard");
+  }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin" || authLoading) return;
     fetchProperties();
-  }, [user, token, authLoading, router, pagination.page]);
+  }, [user, token, authLoading, pagination.page]);
 
   const fetchProperties = async () => {
     setLoading(true);
@@ -40,12 +41,14 @@ export default function AdminPropertiesPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setProperties(data.items);
+        setProperties(Array.isArray(data.items) ? data.items : []);
         setPagination({
-          page: data.page,
-          limit: data.limit,
-          total: data.total
+          page: typeof data.page === "number" ? data.page : 1,
+          limit: typeof data.limit === "number" ? data.limit : 50,
+          total: typeof data.total === "number" ? data.total : 0,
         });
+      } else {
+        console.error(`Erro ao carregar imóveis: ${res.status}`);
       }
     } catch (err) {
       console.error(err);

@@ -55,9 +55,9 @@ export default function RootLayout({
                   <div>
                     <p className="text-white font-bold text-base mb-4">BAI</p>
                     <ul className="space-y-2 text-sm">
-                      <li><a href="#" className="hover:text-white transition-colors">Sobre nós</a></li>
-                      <li><a href="#" className="hover:text-white transition-colors">Nossa missão</a></li>
-                      <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+                      <li><a href="/sobre" className="hover:text-white transition-colors">Sobre nós</a></li>
+                      <li><a href="/missao" className="hover:text-white transition-colors">Nossa missão</a></li>
+                      <li><a href="/dashboard/ranking" className="hover:text-white transition-colors">Ranking de imóveis</a></li>
                     </ul>
                   </div>
 
@@ -75,7 +75,7 @@ export default function RootLayout({
                   <div>
                     <p className="text-white font-bold text-base mb-4">Profissionais</p>
                     <ul className="space-y-2 text-sm">
-                      <li><a href="/login?mode=register&role=user" className="hover:text-white transition-colors">Anunciar imóvel</a></li>
+                      <li><a href="/login?mode=register" className="hover:text-white transition-colors">Anunciar imóvel</a></li>
                       <li><a href="#" className="hover:text-white transition-colors">CRM para corretores</a></li>
                       <li><a href="#" className="hover:text-white transition-colors">Planos e preços</a></li>
                     </ul>
@@ -85,8 +85,8 @@ export default function RootLayout({
                   <div>
                     <p className="text-white font-bold text-base mb-4">Legal & Contato</p>
                     <ul className="space-y-2 text-sm mb-5">
-                      <li><a href="#" className="hover:text-white transition-colors">Política de privacidade</a></li>
-                      <li><a href="#" className="hover:text-white transition-colors">Termos de uso</a></li>
+                      <li><a href="/privacidade" className="hover:text-white transition-colors">Política de privacidade</a></li>
+                      <li><a href="/termos" className="hover:text-white transition-colors">Termos de uso</a></li>
                     </ul>
                     <div className="flex items-center gap-4 text-slate-400">
                       <a href="#" aria-label="WhatsApp" className="hover:text-white transition-colors">

@@ -74,10 +74,12 @@ def get_appointments(db: Session, current_user: Usuario) -> list:
             .all()
         )
     if current_user.perfil == "imobiliaria":
+        broker_ids = [b.id for b in current_user.corretores]
+        broker_ids.append(current_user.id)
         return (
             base
             .join(Imovel)
-            .filter(Imovel.corretor_id == current_user.id)
+            .filter(Imovel.corretor_id.in_(broker_ids))
             .order_by(Agendamento.data_visita.asc())
             .all()
         )

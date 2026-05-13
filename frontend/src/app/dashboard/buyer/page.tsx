@@ -6,182 +6,6 @@ import { CardImovelSkeleton } from "@/app/components/ui/Skeleton";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface Visit {
-  id: number;
-  imovel_id: number;
-  situacao: "pendente" | "confirmado" | "cancelado" | "realizado";
-  data_visita: string;
-  data_fim_visita: string | null;
-  nome_visitante: string;
-  observacoes: string | null;
-  feedback_visita: string | null;
-  imovel: {
-    id: number;
-    titulo: string;
-    bairro: string | null;
-    cidade: string | null;
-    url_imagem: string | null;
-  } | null;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG = {
-  confirmado: {
-    label: "Confirmada",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-      </svg>
-    ),
-    card: "border-emerald-200 bg-emerald-50/40",
-    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    date: "bg-emerald-50 border-emerald-100 text-emerald-600",
-    banner: "bg-emerald-50 border-emerald-200 text-emerald-800",
-  },
-  pendente: {
-    label: "Aguardando confirmação",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    card: "border-amber-200 bg-amber-50/30",
-    badge: "bg-amber-50 text-amber-700 border-amber-200",
-    date: "bg-amber-50 border-amber-100 text-amber-600",
-    banner: "bg-amber-50 border-amber-200 text-amber-800",
-  },
-  cancelado: {
-    label: "Cancelada",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    ),
-    card: "border-red-100 bg-white",
-    badge: "bg-red-50 text-red-600 border-red-200",
-    date: "bg-slate-50 border-slate-100 text-slate-500",
-    banner: "bg-red-50 border-red-200 text-red-800",
-  },
-  realizado: {
-    label: "Realizada",
-    icon: (
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    card: "border-blue-100 bg-white",
-    badge: "bg-blue-50 text-blue-700 border-blue-200",
-    date: "bg-blue-50 border-blue-100 text-blue-600",
-    banner: "bg-blue-50 border-blue-200 text-blue-800",
-  },
-} as const;
-
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    weekday: "short", day: "2-digit", month: "short",
-  });
-}
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-}
-
-// ─── Visit Card ───────────────────────────────────────────────────────────────
-
-function VisitCard({ v }: { v: Visit }) {
-  const cfg = STATUS_CONFIG[v.situacao] ?? STATUS_CONFIG.pendente;
-  const isConfirmed = v.situacao === "confirmado";
-  const isPending = v.situacao === "pendente";
-  const imgSrc = v.imovel?.url_imagem || "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80";
-
-  return (
-    <div className={`rounded-3xl border p-5 flex flex-col sm:flex-row gap-5 transition ${cfg.card}`}>
-      {/* Image */}
-      <div className="w-full sm:w-28 h-28 rounded-2xl overflow-hidden shrink-0 bg-slate-100">
-        <img src={imgSrc} alt="" className="w-full h-full object-cover" />
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 flex flex-col gap-3">
-        {/* Status banner */}
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-bold ${cfg.banner}`}>
-          {cfg.icon}
-          <span>{cfg.label}</span>
-          {isConfirmed && (
-            <span className="ml-auto text-xs font-black uppercase tracking-wider text-emerald-600">
-              Sua visita está confirmada!
-            </span>
-          )}
-          {isPending && (
-            <span className="ml-auto text-xs font-normal text-amber-600">
-              O corretor ainda não confirmou
-            </span>
-          )}
-        </div>
-
-        {/* Property + date */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1 min-w-0">
-            <Link
-              href={`/properties/${v.imovel_id}`}
-              className="font-black text-slate-900 hover:text-blue-600 transition text-base block truncate"
-            >
-              {v.imovel?.titulo || `Imóvel #${v.imovel_id}`}
-            </Link>
-            {(v.imovel?.bairro || v.imovel?.cidade) && (
-              <p className="text-xs text-slate-400 font-medium mt-0.5">
-                {[v.imovel.bairro, v.imovel.cidade].filter(Boolean).join(", ")}
-              </p>
-            )}
-          </div>
-
-          {/* Date block */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border shrink-0 ${cfg.date}`}>
-            <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <div>
-              <div className="text-[10px] font-black uppercase">{fmtDate(v.data_visita)}</div>
-              <div className="text-sm font-black">{fmtTime(v.data_visita)}h</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Observations */}
-        {v.observacoes && (
-          <p className="text-xs text-slate-500 italic bg-white/60 px-3 py-2 rounded-xl border border-slate-100">
-            "{v.observacoes}"
-          </p>
-        )}
-
-        {/* Feedback from broker */}
-        {v.feedback_visita && (
-          <div className="text-xs text-blue-700 bg-blue-50 px-3 py-2 rounded-xl border border-blue-100">
-            <span className="font-black">Feedback do corretor: </span>
-            {v.feedback_visita}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center gap-3 mt-auto pt-1">
-          <Link
-            href={`/properties/${v.imovel_id}`}
-            className="text-xs font-black text-blue-600 hover:underline"
-          >
-            Ver imóvel →
-          </Link>
-          <span className={`ml-auto flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full border ${cfg.badge}`}>
-            {cfg.icon}
-            {cfg.label}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function BuyerDashboard() {
@@ -192,7 +16,6 @@ export default function BuyerDashboard() {
   const [exactProps, setExactProps] = useState<any[]>([]);
   const [expandedProps, setExpandedProps] = useState<any[]>([]);
   const [newProps, setNewProps] = useState<any[]>([]);
-  const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
@@ -202,9 +25,8 @@ export default function BuyerDashboard() {
       if (!token) { router.push("/login"); return; }
 
       try {
-        const [profilesRes, visitsRes, newRes] = await Promise.all([
+        const [profilesRes, newRes] = await Promise.all([
           fetch(`${API}/api/v1/match/profiles`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API}/api/v1/agendamentos/`, { headers: { Authorization: `Bearer ${token}` } }),
           fetch(`${API}/api/v1/visualizacoes/properties/new?limit=12`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
@@ -213,7 +35,6 @@ export default function BuyerDashboard() {
           setProfiles(data);
           if (data.length > 0) setActiveProfile(data[0]);
         }
-        if (visitsRes.ok) setVisits(await visitsRes.json());
         if (newRes.ok) setNewProps(await newRes.json());
       } catch (err) {
         console.error("Erro ao carregar painel:", err);
@@ -274,12 +95,6 @@ export default function BuyerDashboard() {
     </Link>
   ), [activeProfile]);
 
-  // Derived: visits that need attention (pending = require confirmation from broker)
-  const pendingVisits = visits.filter((v) => v.situacao === "pendente");
-  const confirmedVisits = visits.filter((v) => v.situacao === "confirmado");
-  const upcomingVisits = visits.filter((v) => v.situacao === "pendente" || v.situacao === "confirmado");
-  const pastVisits = visits.filter((v) => v.situacao === "realizado" || v.situacao === "cancelado");
-
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -308,65 +123,11 @@ export default function BuyerDashboard() {
           <Link href="/dashboard/buyer/financing" className="px-6 py-3.5 bg-slate-100 text-slate-900 font-bold rounded-full hover:bg-slate-200 transition text-sm flex items-center gap-2">
             Financiamento
           </Link>
-          <Link href="/announce" className="px-6 py-3.5 bg-emerald-600 text-white font-bold rounded-full hover:bg-emerald-700 transition text-sm flex items-center gap-2">
-            Anunciar Imóvel
-          </Link>
           <Link href="/dashboard/buyer/profile" className="px-6 py-3.5 bg-blue-600 text-white font-bold rounded-full hover:bg-blue-700 transition text-sm">
             Criar Perfil de Busca
           </Link>
         </div>
       </div>
-
-      {/* ── Minhas Visitas (sempre visível quando há agendamentos) ── */}
-      {visits.length > 0 && (
-        <section className="mb-12">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Minhas Visitas</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {confirmedVisits.length > 0 && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-black rounded-full border border-emerald-200">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                  {confirmedVisits.length} confirmada{confirmedVisits.length !== 1 ? "s" : ""}
-                </span>
-              )}
-              {pendingVisits.length > 0 && (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs font-black rounded-full border border-amber-200">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  {pendingVisits.length} aguardando
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Próximas */}
-          {upcomingVisits.length > 0 && (
-            <div className="space-y-4 mb-6">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Próximas</p>
-              {upcomingVisits.map((v) => <VisitCard key={v.id} v={v} />)}
-            </div>
-          )}
-
-          {/* Histórico */}
-          {pastVisits.length > 0 && (
-            <details className="group">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2 list-none mb-3 select-none">
-                <svg className="w-3.5 h-3.5 group-open:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                Histórico ({pastVisits.length})
-              </summary>
-              <div className="space-y-4">
-                {pastVisits.map((v) => <VisitCard key={v.id} v={v} />)}
-              </div>
-            </details>
-          )}
-        </section>
-      )}
 
       {/* ── Sem perfis de busca ── */}
       {profiles.length === 0 ? (

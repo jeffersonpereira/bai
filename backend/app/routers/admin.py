@@ -12,6 +12,7 @@ from app.models.lead import Lead
 from app.core.deps import get_current_admin
 from app.schemas.usuario import UserAdminResponse, UserAdminUpdate
 from app.schemas.admin import AdminStats
+from app.services import admin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -53,16 +54,7 @@ def get_admin_stats(
     db: Session = Depends(get_db),
     _: Usuario = Depends(get_current_admin),
 ):
-    one_week_ago = datetime.now() - timedelta(days=7)
-    return {
-        "total_users": db.query(Usuario).count(),
-        "total_agencies": db.query(Usuario).filter(Usuario.perfil == "imobiliaria").count(),
-        "total_brokers": db.query(Usuario).filter(Usuario.perfil == "corretor").count(),
-        "total_properties": db.query(Imovel).count(),
-        "total_leads": db.query(Lead).count(),
-        "recent_registrations": db.query(Usuario).filter(Usuario.criado_em >= one_week_ago).count(),
-        "premium_users": db.query(Usuario).filter(Usuario.tipo_plano.in_(["pro", "premium"])).count(),
-    }
+    return admin_service.get_stats(db)
 
 
 class UserAdminListResponse(BaseModel):
@@ -152,11 +144,13 @@ def update_user(
     user_id: int,
     user_in: UserAdminUpdate,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(get_current_admin),
+    current_admin: Usuario = Depends(get_current_admin),
 ):
     db_user = db.query(Usuario).filter(Usuario.id == user_id).first()
     if not db_user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if user_in.perfil and db_user.id == current_admin.id and user_in.perfil != db_user.perfil:
+        raise HTTPException(status_code=403, detail="Admin não pode alterar o próprio perfil")
 
     for key, value in user_in.model_dump(exclude_unset=True).items():
         setattr(db_user, key, value)

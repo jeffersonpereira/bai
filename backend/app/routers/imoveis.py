@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -10,6 +10,7 @@ from app.schemas.imovel import (
 )
 from app.services import imovel_service
 from app.core.deps import get_current_user, get_current_agency, get_current_full_access, get_current_admin
+from app.core.quota import verificar_quota_imoveis, verificar_quota_fotos
 
 router = APIRouter(prefix="/imoveis", tags=["imoveis"], redirect_slashes=False)
 
@@ -54,11 +55,11 @@ def get_my_properties(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    title: str | None = Query(None),
+    titulo: str | None = Query(None),
     status: str | None = Query(None),
     current_user: Usuario = Depends(get_current_user),
 ):
-    return imovel_service.get_my_properties(db, current_user, page=page, limit=limit, title=title, status=status)
+    return imovel_service.get_my_properties(db, current_user, page=page, limit=limit, title=titulo, status=status)
 
 
 @router.get("/user/stats")
@@ -67,6 +68,17 @@ def get_my_stats(
     current_user: Usuario = Depends(get_current_user),
 ):
     return imovel_service.get_property_stats(db, current_user)
+
+
+@router.get("/proprietario/{proprietario_id}", response_model=PaginatedPropertiesResponse)
+def get_properties_by_owner(
+    proprietario_id: int,
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: Usuario = Depends(get_current_user),
+):
+    return imovel_service.get_properties_by_owner(db, proprietario_id, page=page, limit=limit)
 
 
 @router.get("/map", response_model=List[PropertyMapItem])
@@ -120,6 +132,8 @@ def create_property(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
+    verificar_quota_imoveis(db, current_user)
+    verificar_quota_fotos(current_user, len(property_in.midias))
     return imovel_service.create_property(db, property_in, current_user)
 
 
@@ -162,17 +176,22 @@ def assign_broker(
     return imovel_service.assign_broker(db, property_id, user_id, current_user)
 
 
-@router.delete("/{property_id}/assign/{user_id}", dependencies=[Depends(get_current_agency)])
+@router.delete("/{property_id}/assign/{user_id}")
 def unassign_broker(
     property_id: int,
     user_id: int,
     db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_agency),
 ):
-    return imovel_service.unassign_broker(db, property_id, user_id)
+    return imovel_service.unassign_broker(db, property_id, user_id, current_user)
 
 
 @router.get("/{property_id}/availability", response_model=List[AvailabilityResponse])
-def get_property_availability(property_id: int, db: Session = Depends(get_db)):
+def get_property_availability(
+    property_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_user),
+):
     return imovel_service.get_availability(db, property_id)
 
 
@@ -197,3 +216,28 @@ def price_analysis(
     )
 
 
+@router.post("/{imovel_id}/imagens", status_code=201)
+async def upload_imagem_imovel(
+    imovel_id: int,
+    arquivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    prop = imovel_service.get_property(db, imovel_id)
+    if prop.corretor_id != current_user.id and current_user.perfil not in ("imobiliaria", "admin"):
+        raise HTTPException(status_code=403, detail="Sem permissão para adicionar imagens a este imóvel")
+    midia = await imovel_service.fazer_upload_imagem(imovel_id, arquivo, db)
+    return {"id": midia.id, "url": midia.url, "ordem": midia.ordem}
+
+
+@router.delete("/{imovel_id}/imagens/{midia_id}", status_code=204)
+def delete_imagem_imovel(
+    imovel_id: int,
+    midia_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    prop = imovel_service.get_property(db, imovel_id)
+    if prop.corretor_id != current_user.id and current_user.perfil not in ("imobiliaria", "admin"):
+        raise HTTPException(status_code=403, detail="Sem permissão para remover imagens deste imóvel")
+    imovel_service.deletar_imagem_imovel(midia_id, imovel_id, db)

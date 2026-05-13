@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -16,6 +17,9 @@ from app.schemas.whatsapp import (
 )
 from app.core.config import settings
 from app.core.deps import get_current_user
+from app.core.planos import checar_feature
+from app.services.crm_service import criar_lead_auto
+from app.agents.whatsapp_agent import handle_incoming_message
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -33,6 +37,11 @@ def _headers() -> dict:
 def _check_role(user: Usuario) -> None:
     if user.perfil not in ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="Perfil não autorizado para WhatsApp")
+    if not checar_feature(user.tipo_plano, "whatsapp"):
+        raise HTTPException(
+            status_code=402,
+            detail="WhatsApp disponível nos planos Pro e Premium. Faça upgrade para acessar.",
+        )
 
 
 # --- Session management ---
@@ -129,8 +138,9 @@ def _verify_internal(x_internal_key: Optional[str] = Header(None)) -> None:
 
 
 @router.post("/webhook/message", include_in_schema=False)
-def webhook_message(
+async def webhook_message(
     payload: WhatsAppWebhookMessage,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: None = Depends(_verify_internal),
 ):
@@ -153,7 +163,38 @@ def webhook_message(
     )
     db.add(msg)
     db.commit()
+
+    telefone = payload.from_jid.split("@")[0]
+    mensagens_anteriores = db.query(WhatsAppMessage).filter(
+        WhatsAppMessage.usuario_id == payload.user_id,
+        WhatsAppMessage.jid_conversa == payload.from_jid,
+        WhatsAppMessage.direcao == "entrada",
+        WhatsAppMessage.id != msg.id,
+    ).first()
+    if not mensagens_anteriores:
+        criar_lead_auto(
+            db,
+            imovel_id=None,
+            corretor_id=payload.user_id,
+            nome=payload.push_name or telefone,
+            telefone=telefone,
+            origem="whatsapp",
+            observacoes=f"Primeira mensagem: {payload.body[:300]}",
+        )
+
+    background_tasks.add_task(
+        _run_agent,
+        db,
+        payload.user_id,
+        payload.from_jid,
+        payload.push_name,
+    )
+
     return {"ok": True}
+
+
+def _run_agent(db: Session, usuario_id: int, from_jid: str, push_name: Optional[str]) -> None:
+    asyncio.run(handle_incoming_message(db, usuario_id, from_jid, push_name))
 
 
 @router.post("/webhook/status", include_in_schema=False)

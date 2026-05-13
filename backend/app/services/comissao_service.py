@@ -7,19 +7,26 @@ from app.models.usuario import Usuario
 from app.models.imovel import Imovel
 
 
-def _assert_agency_access(current_user: Usuario) -> None:
+def _assert_write_access(current_user: Usuario) -> None:
     if current_user.perfil not in ["imobiliaria", "admin"]:
         raise HTTPException(status_code=403, detail="Acesso restrito a agências e administradores.")
 
 
+def _assert_read_access(current_user: Usuario) -> None:
+    if current_user.perfil not in ["imobiliaria", "admin", "corretor"]:
+        raise HTTPException(status_code=403, detail="Acesso negado.")
+
+
 def list_comissoes(db: Session, current_user: Usuario, situacao: str | None = None) -> list:
-    _assert_agency_access(current_user)
+    _assert_read_access(current_user)
     query = db.query(Comissao)
 
     if current_user.perfil == "imobiliaria":
         broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
         query = query.filter(Comissao.corretor_id.in_(broker_ids))
+    elif current_user.perfil == "corretor":
+        query = query.filter(Comissao.corretor_id == current_user.id)
 
     if situacao:
         query = query.filter(Comissao.situacao_pagamento == situacao)
@@ -36,7 +43,7 @@ def create_comissao(
     observacoes: str | None,
     current_user: Usuario,
 ) -> Comissao:
-    _assert_agency_access(current_user)
+    _assert_write_access(current_user)
 
     prop = db.query(Imovel).filter(Imovel.id == imovel_id).first()
     if not prop:
@@ -71,7 +78,7 @@ def update_status(
     new_status: str,
     current_user: Usuario,
 ) -> Comissao:
-    _assert_agency_access(current_user)
+    _assert_write_access(current_user)
     valid = {"pendente", "pago", "cancelado"}
     if new_status not in valid:
         raise HTTPException(status_code=400, detail=f"Status inválido. Permitidos: {valid}")
@@ -90,13 +97,15 @@ def update_status(
 
 
 def get_resumo(db: Session, current_user: Usuario) -> dict:
-    _assert_agency_access(current_user)
+    _assert_read_access(current_user)
 
     query = db.query(Comissao)
     if current_user.perfil == "imobiliaria":
         broker_ids = [b.id for b in current_user.corretores]
         broker_ids.append(current_user.id)
         query = query.filter(Comissao.corretor_id.in_(broker_ids))
+    elif current_user.perfil == "corretor":
+        query = query.filter(Comissao.corretor_id == current_user.id)
 
     all_comissoes = query.all()
     total_gerado = sum(float(c.valor_comissao) for c in all_comissoes)

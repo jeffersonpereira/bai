@@ -1,8 +1,34 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pdftotext \"BAI.pdf\" -)",
-      "Bash(pdftotext \"Projeto BAI_ Especificação e Arquitetura.pdf\" -)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:40001/api/v1/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:40001/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:40001/api/v1/auth/me)",
+      "Bash(curl -s http://localhost:40001/)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d\\)\")",
+      "Bash(curl -s http://localhost:40001/docs)",
+      "Bash(curl -s -X POST http://localhost:40001/api/v1/auth/login -d 'username=imobiliaria@bai.com.br&password=12345678' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f\\\\\"perfil={d['perfil']} id={d['id']} imobiliaria_id={d.get\\('imobiliaria_id'\\)} nome={d['nome']}\\\\\"\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \" import sys,json acts=json.load\\(sys.stdin\\) print\\(f'total atividades: {len\\(acts\\)}'\\) for a in acts[:3]: print\\(f' tipo={a[\\\\\"tipo_atividade\\\\\"]} user={a.get\\(\\\\\"user_name\\\\\"\\)} desc={a[\\\\\"descricao\\\\\"][:40]}'\\) \")",
+      "WebFetch(domain:localhost)",
+      "Bash(curl -s -X POST __TRACKED_VAR__/auth/login -d 'username=imobiliaria@bai.com.br&password=12345678' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(curl -s http://localhost:3000/dashboard/crm)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/dashboard/crm)",
+      "Bash(npx tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('playwright'\\)\")",
+      "Bash(npx playwright *)",
+      "Bash(node test_crm_perfis.mjs)",
+      "Bash(node *)",
+      "Bash(curl -s \"http://localhost:40001/api/v1/auth/login\" -X POST -d \"username=imobiliaria@bai.com.br&password=12345678\" -H \"Content-Type: application/x-www-form-urlencoded\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('token:', d.get\\('access_token','ERRO'\\)[:20] if d.get\\('access_token'\\) else d\\)\")",
+      "Bash(xargs grep *)"
     ]
   }
 }

@@ -211,6 +211,37 @@ export default function SellerDashboard() {
 
   useEffect(() => { loadTabData(); }, [loadTabData]);
 
+  const changeVisitStatus = async (visitId: number, situacao: "confirmado" | "cancelado" | "realizado") => {
+    const token = localStorage.getItem("bai_token");
+    try {
+      const r = await fetch(`${API}/api/v1/agendamentos/${visitId}/status?situacao=${situacao}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error((await r.json()).detail ?? "Erro");
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === visitId ? { ...a, situacao } : a))
+      );
+      setProperties((prev) =>
+        prev.map((p) =>
+          p.id === selected?.id && situacao !== "confirmado"
+            ? { ...p, pending_visits: Math.max(0, p.pending_visits - 1) }
+            : p
+        )
+      );
+      if (selected && situacao !== "confirmado") {
+        setSelected({ ...selected, pending_visits: Math.max(0, selected.pending_visits - 1) });
+      }
+      success(
+        situacao === "confirmado" ? "Visita confirmada!"
+        : situacao === "cancelado" ? "Visita cancelada."
+        : "Visita marcada como realizada."
+      );
+    } catch (err: unknown) {
+      toastError(err instanceof Error ? err.message : "Erro ao atualizar visita");
+    }
+  };
+
   const decideProposal = async (proposalId: number, status: "aceita" | "recusada" | "contraproposta") => {
     const token = localStorage.getItem("bai_token");
     try {
@@ -642,21 +673,47 @@ export default function SellerDashboard() {
                                       {a.observacoes && <div className="text-xs text-slate-400 mt-1 italic">"{a.observacoes}"</div>}
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-3 shrink-0">
+                                  <div className="flex flex-col items-end gap-2 shrink-0">
                                     <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border ${s.color}`}>
                                       {s.label}
                                     </span>
-                                    {a.telefone_visitante && (
-                                      <a
-                                        href={`https://wa.me/55${a.telefone_visitante.replace(/\D/g, "")}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition"
-                                        title="WhatsApp"
-                                      >
-                                        <WAIcon />
-                                      </a>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                      {a.telefone_visitante && (
+                                        <a
+                                          href={`https://wa.me/55${a.telefone_visitante.replace(/\D/g, "")}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition"
+                                          title="WhatsApp"
+                                        >
+                                          <WAIcon />
+                                        </a>
+                                      )}
+                                      {a.situacao === "pendente" && (
+                                        <>
+                                          <button
+                                            onClick={() => changeVisitStatus(a.id, "confirmado")}
+                                            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-black transition"
+                                          >
+                                            Confirmar
+                                          </button>
+                                          <button
+                                            onClick={() => changeVisitStatus(a.id, "cancelado")}
+                                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-[10px] font-black transition"
+                                          >
+                                            Cancelar
+                                          </button>
+                                        </>
+                                      )}
+                                      {a.situacao === "confirmado" && (
+                                        <button
+                                          onClick={() => changeVisitStatus(a.id, "realizado")}
+                                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[10px] font-black transition"
+                                        >
+                                          Marcar realizada
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -716,8 +773,19 @@ export default function SellerDashboard() {
                 </div>
               </div>
 
-              {/* Property edit link */}
-              <div className="mt-4 flex justify-end">
+              {/* Property actions */}
+              <div className="mt-4 flex items-center justify-between">
+                <Link
+                  href={`/properties/${selected.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 font-medium transition"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Ver anúncio
+                </Link>
                 <Link
                   href={`/announce/edit/${selected.id}`}
                   className="text-xs text-slate-400 hover:text-blue-600 font-medium transition"

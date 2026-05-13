@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import PlanGate from "@/app/components/PlanGate";
 
@@ -14,7 +14,7 @@ interface Message {
 }
 
 interface SessionStatus {
-  status: "connected" | "connecting" | "disconnected" | "qr";
+  status: string;
   qr: string | null;
 }
 
@@ -42,48 +42,75 @@ export default function WhatsAppPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastMsgIdRef = useRef<number | null>(null);
 
-  const pollSession = async () => {
+  const headers = useCallback(
+    () => ({ Authorization: `Bearer ${token}` }),
+    [token]
+  );
+
+  const pollSession = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API}/api/v1/whatsapp/session/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`${API}/api/v1/whatsapp/session/status`, { headers: headers() });
       if (res.ok) setSession(await res.json());
     } catch { /* ignore */ }
-  };
+  }, [token, headers]);
 
-  const loadMessages = async (jid?: string) => {
+  // Always load ALL messages; derive chats list from them.
+  // When activeChat is set, we also show only its messages via filter at render.
+  const loadAllMessages = useCallback(async () => {
     if (!token) return;
-    const params = jid ? `?chat_jid=${encodeURIComponent(jid)}&limit=100` : "?limit=100";
     try {
-      const res = await fetch(`${API}/api/v1/whatsapp/messages${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const msgs: Message[] = await res.json();
-        const sorted = [...msgs].reverse();
-        setMessages(sorted);
-        const uniqueJids = [...new Set(msgs.map(m => m.jid_conversa))];
-        setChats(uniqueJids);
+      const res = await fetch(`${API}/api/v1/whatsapp/messages?limit=200`, { headers: headers() });
+      if (!res.ok) return;
+      const msgs: Message[] = await res.json();
+      const sorted = [...msgs].reverse(); // oldest → newest
+      setMessages(sorted);
+      // Preserve order of first appearance (most recent conversation first)
+      const seen = new Set<string>();
+      const uniqueJids: string[] = [];
+      for (const m of msgs) { // msgs is newest-first from API
+        if (!seen.has(m.jid_conversa)) {
+          seen.add(m.jid_conversa);
+          uniqueJids.push(m.jid_conversa);
+        }
       }
+      setChats(uniqueJids);
     } catch { /* ignore */ }
-  };
+  }, [token, headers]);
+
+  const activeMessages = useMemo(
+    () => messages.filter(m => !activeChat || m.jid_conversa === activeChat),
+    [messages, activeChat]
+  );
 
   useEffect(() => {
     if (!token || !hasWhatsApp) return;
     pollSession();
-    loadMessages();
+    loadAllMessages();
     const interval = setInterval(() => {
       pollSession();
-      if (activeChat) loadMessages(activeChat);
+      loadAllMessages();
     }, 5000);
     return () => clearInterval(interval);
-  }, [token, hasWhatsApp, activeChat]);
+  }, [token, hasWhatsApp, pollSession, loadAllMessages]);
 
+  // Scroll to bottom when switching chat
   useEffect(() => {
+    lastMsgIdRef.current = null;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [activeChat]);
+
+  // Scroll to bottom only when a new message arrives
+  useEffect(() => {
+    const lastMsg = activeMessages.at(-1);
+    if (!lastMsg) return;
+    if (lastMsg.id !== lastMsgIdRef.current) {
+      lastMsgIdRef.current = lastMsg.id;
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [activeMessages]);
 
   const connect = async () => {
     setConnecting(true);
@@ -91,7 +118,7 @@ export default function WhatsAppPage() {
     try {
       const res = await fetch(`${API}/api/v1/whatsapp/session/start`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: headers(),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -108,9 +135,12 @@ export default function WhatsAppPage() {
     try {
       await fetch(`${API}/api/v1/whatsapp/session`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: headers(),
       });
       setSession({ status: "disconnected", qr: null });
+      setChats([]);
+      setMessages([]);
+      setActiveChat(null);
     } catch { /* ignore */ }
   };
 
@@ -120,12 +150,12 @@ export default function WhatsAppPage() {
     try {
       const res = await fetch(`${API}/api/v1/whatsapp/send`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { ...headers(), "Content-Type": "application/json" },
         body: JSON.stringify({ to: activeChat, text: msgText.trim() }),
       });
       if (res.ok) {
         setMsgText("");
-        await loadMessages(activeChat);
+        await loadAllMessages();
       } else {
         const d = await res.json();
         setError(d.detail || "Erro ao enviar mensagem.");
@@ -134,7 +164,8 @@ export default function WhatsAppPage() {
     finally { setSending(false); }
   };
 
-  const activeMessages = messages.filter(m => !activeChat || m.jid_conversa === activeChat);
+  const isConnected = session.status === "connected";
+  const isConnecting = session.status === "connecting" || session.status === "qr_pending";
 
   if (!hasWhatsApp) {
     return (
@@ -145,21 +176,19 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
-      {/* Sidebar: connection + chat list */}
+    <div className="flex h-full overflow-hidden">
+      {/* Sidebar */}
       <div className="w-72 shrink-0 bg-white border-r border-slate-100 flex flex-col">
         {/* Connection status */}
         <div className="p-4 border-b border-slate-100">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-black text-slate-900">WhatsApp</h2>
             <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${
-              session.status === "connected" ? "bg-emerald-50 text-emerald-700"
-              : session.status === "connecting" ? "bg-amber-50 text-amber-700"
+              isConnected ? "bg-emerald-50 text-emerald-700"
+              : isConnecting ? "bg-amber-50 text-amber-700"
               : "bg-slate-100 text-slate-500"
             }`}>
-              {session.status === "connected" ? "Conectado"
-               : session.status === "connecting" ? "Conectando..."
-               : "Desconectado"}
+              {isConnected ? "Conectado" : isConnecting ? "Conectando..." : "Desconectado"}
             </span>
           </div>
 
@@ -173,7 +202,7 @@ export default function WhatsAppPage() {
             </button>
           )}
 
-          {session.status === "connecting" && !session.qr && (
+          {isConnecting && !session.qr && (
             <p className="text-xs text-slate-400 text-center py-2">Aguardando QR Code...</p>
           )}
 
@@ -184,7 +213,7 @@ export default function WhatsAppPage() {
             </div>
           )}
 
-          {session.status === "connected" && (
+          {isConnected && (
             <button
               onClick={disconnect}
               className="w-full py-2 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition"
@@ -201,22 +230,30 @@ export default function WhatsAppPage() {
               <p>Nenhuma conversa ainda.</p>
               <p className="mt-1">Mensagens recebidas aparecerão aqui.</p>
             </div>
-          ) : chats.map(jid => (
-            <button
-              key={jid}
-              onClick={() => { setActiveChat(jid); loadMessages(jid); }}
-              className={`w-full text-left px-4 py-3 border-b border-slate-50 transition ${activeChat === jid ? "bg-blue-50" : "hover:bg-slate-50"}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-black shrink-0">
-                  {jid.slice(0, 2).toUpperCase()}
+          ) : chats.map(jid => {
+            const lastMsg = messages.filter(m => m.jid_conversa === jid).at(-1);
+            return (
+              <button
+                key={jid}
+                onClick={() => setActiveChat(jid)}
+                className={`w-full text-left px-4 py-3 border-b border-slate-50 transition ${activeChat === jid ? "bg-blue-50" : "hover:bg-slate-50"}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-black shrink-0">
+                    {jid.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-800 truncate">{fmtPhone(jid)}</p>
+                    {lastMsg && (
+                      <p className="text-xs text-slate-400 truncate">
+                        {lastMsg.direcao === "saida" ? "Você: " : ""}{lastMsg.conteudo}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{fmtPhone(jid)}</p>
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -238,10 +275,10 @@ export default function WhatsAppPage() {
                 </svg>
               </div>
               <p className="font-bold text-slate-600 text-lg mb-1">
-                {session.status === "connected" ? "Selecione uma conversa" : "Conecte seu WhatsApp"}
+                {isConnected ? "Selecione uma conversa" : "Conecte seu WhatsApp"}
               </p>
               <p className="text-slate-400 text-sm">
-                {session.status === "connected"
+                {isConnected
                   ? "Clique em uma conversa na lista à esquerda para começar."
                   : "Clique em 'Conectar WhatsApp' e escaneie o QR Code."}
               </p>
@@ -251,6 +288,15 @@ export default function WhatsAppPage() {
           <>
             {/* Chat header */}
             <div className="bg-white border-b border-slate-100 px-5 py-3 flex items-center gap-3 shrink-0">
+              <button
+                onClick={() => setActiveChat(null)}
+                className="text-slate-400 hover:text-slate-600 transition mr-1"
+                title="Voltar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
               <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-black">
                 {activeChat.slice(0, 2).toUpperCase()}
               </div>
@@ -289,12 +335,12 @@ export default function WhatsAppPage() {
                 onChange={e => setMsgText(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
                 placeholder="Escreva uma mensagem..."
-                disabled={session.status !== "connected"}
+                disabled={!isConnected}
                 className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50"
               />
               <button
                 onClick={sendMessage}
-                disabled={!msgText.trim() || sending || session.status !== "connected"}
+                disabled={!msgText.trim() || sending || !isConnected}
                 className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 disabled:opacity-40 transition"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -28,7 +28,21 @@
       "Bash(node *)",
       "Bash(curl -s \"http://localhost:40001/api/v1/auth/login\" -X POST -d \"username=imobiliaria@bai.com.br&password=12345678\" -H \"Content-Type: application/x-www-form-urlencoded\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('token:', d.get\\('access_token','ERRO'\\)[:20] if d.get\\('access_token'\\) else d\\)\")",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(curl -s http://localhost:40002/health)",
+      "Bash(curl -s -X POST http://localhost:40002/sessions/999/start -H 'X-Internal-Key: bai_internal_node_key_troque_em_producao')",
+      "Bash(curl -s http://localhost:40002/sessions/999/status -H 'X-Internal-Key: bai_internal_node_key_troque_em_producao')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('status:', d['status']\\); print\\('qr presente:', d['qr'] is not None and len\\(d.get\\('qr',''\\)\\)>10\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d['version']\\)\")",
+      "Bash(kill -9 8828)",
+      "Bash(rm -rf sessions/42 sessions/13)",
+      "PowerShell(Stop-Process *)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(curl -s http://localhost:40001/api/v1/whatsapp/session/status -H \"Authorization: Bearer test\")",
+      "Bash(gh api *)",
+      "Bash(python -c \"import sys,json; [print\\(f['name']\\) for f in json.load\\(sys.stdin\\)]\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

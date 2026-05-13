@@ -10,6 +10,7 @@ import pino from 'pino'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
+import QRCode from 'qrcode'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const sessionsDir = path.join(__dirname, '..', 'sessions')
@@ -59,7 +60,7 @@ class ConnectionManager {
             sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update
                 if (qr) {
-                    session.qr = qr
+                    session.qr = await QRCode.toDataURL(qr)
                     session.status = 'qr_pending'
                 }
                 if (connection === 'open') {
@@ -71,10 +72,13 @@ class ConnectionManager {
                         ? lastDisconnect.error.output?.statusCode
                         : null
                     const shouldReconnect = code !== DisconnectReason.loggedOut
-                    session.status = shouldReconnect ? 'connecting' : 'disconnected'
                     if (!shouldReconnect) {
+                        session.status = 'disconnected'
+                        session.qr = null
                         this._notifyStatus(userId, 'disconnected')
                     } else {
+                        session.status = 'disconnected'
+                        session.qr = null
                         setTimeout(() => this.connect(userId), 3000)
                     }
                 }

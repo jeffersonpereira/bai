@@ -7,6 +7,16 @@ import { useToast } from "@/app/components/ui/Toast";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:40001";
 
+const TODAS_PERMISSOES = [
+  { value: "gerenciar_usuarios", label: "Gerenciar Usuários" },
+  { value: "gerenciar_imoveis", label: "Gerenciar Imóveis" },
+  { value: "gerenciar_leads", label: "Gerenciar Leads" },
+  { value: "gerenciar_planos", label: "Gerenciar Planos" },
+  { value: "ver_relatorios", label: "Ver Relatórios" },
+  { value: "gerenciar_cupons", label: "Gerenciar Cupons" },
+  { value: "configuracoes_sistema", label: "Configurações do Sistema" },
+];
+
 interface UserAdmin {
   id: number;
   email: string;
@@ -18,6 +28,7 @@ interface UserAdmin {
   tipo_plano: string | null;
   plano_expira_em: string | null;
   broker_count: number;
+  permissoes: string[];
 }
 
 interface UserListResponse {
@@ -41,6 +52,17 @@ interface EditForm {
   tipo_plano: string;
   plano_expira_em: string;
   creci: string;
+  permissoes: string[];
+}
+
+interface CreateForm {
+  nome: string;
+  email: string;
+  senha: string;
+  confirmarSenha: string;
+  perfil: string;
+  tipo_plano: string;
+  permissoes: string[];
 }
 
 const PERFIL_LABELS: Record<string, string> = {
@@ -62,6 +84,33 @@ const PLANO_COLORS: Record<string, string> = {
   pro: "bg-indigo-100 text-indigo-700",
   gratuito: "bg-slate-100 text-slate-500",
 };
+
+function PermissoesCheckboxes({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const toggle = (p: string) => {
+    onChange(value.includes(p) ? value.filter((x) => x !== p) : [...value, p]);
+  };
+  return (
+    <div className="grid grid-cols-1 gap-1.5">
+      {TODAS_PERMISSOES.map((p) => (
+        <label key={p.value} className="flex items-center gap-2.5 cursor-pointer group">
+          <input
+            type="checkbox"
+            checked={value.includes(p.value)}
+            onChange={() => toggle(p.value)}
+            className="w-4 h-4 rounded accent-blue-600"
+          />
+          <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">{p.label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminUsersPage() {
   const { success, error: toastError } = useToast();
@@ -91,8 +140,21 @@ export default function AdminUsersPage() {
     tipo_plano: "gratuito",
     plano_expira_em: "",
     creci: "",
+    permissoes: [],
   });
   const [saving, setSaving] = useState(false);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateForm>({
+    nome: "",
+    email: "",
+    senha: "",
+    confirmarSenha: "",
+    perfil: "admin",
+    tipo_plano: "gratuito",
+    permissoes: [],
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -160,6 +222,7 @@ export default function AdminUsersPage() {
       tipo_plano: u.tipo_plano || "gratuito",
       plano_expira_em: u.plano_expira_em ? u.plano_expira_em.split("T")[0] : "",
       creci: u.creci || "",
+      permissoes: u.permissoes || [],
     });
   };
 
@@ -174,6 +237,7 @@ export default function AdminUsersPage() {
         tipo_plano: editForm.tipo_plano,
         creci: editForm.creci || null,
         plano_expira_em: editForm.plano_expira_em || null,
+        permissoes: editForm.permissoes,
       };
 
       const res = await fetch(`${API}/api/v1/admin/users/${editingUser.id}`, {
@@ -198,6 +262,43 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleCreate = async () => {
+    if (createForm.senha !== createForm.confirmarSenha) {
+      toastError("As senhas não coincidem.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch(`${API}/api/v1/admin/users`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nome: createForm.nome,
+          email: createForm.email,
+          senha: createForm.senha,
+          perfil: createForm.perfil,
+          tipo_plano: createForm.tipo_plano,
+          permissoes: createForm.permissoes,
+        }),
+      });
+      if (res.ok) {
+        setShowCreateModal(false);
+        setCreateForm({ nome: "", email: "", senha: "", confirmarSenha: "", perfil: "admin", tipo_plano: "gratuito", permissoes: [] });
+        success("Usuário criado com sucesso!");
+        fetchUsers(1);
+        fetchPlanStats();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toastError(err.detail || "Erro ao criar usuário.");
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / LIMIT);
 
   const goToPage = (p: number) => {
@@ -218,9 +319,17 @@ export default function AdminUsersPage() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Usuários & Planos</h1>
           <p className="text-slate-500 font-medium mt-1">Gerencie contas, perfis e assinaturas da plataforma.</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-black text-slate-900">{total}</div>
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">usuários encontrados</div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition text-sm shadow-lg shadow-blue-100"
+          >
+            + Novo Usuário
+          </button>
+          <div className="text-right">
+            <div className="text-2xl font-black text-slate-900">{total}</div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">usuários encontrados</div>
+          </div>
         </div>
       </div>
 
@@ -325,6 +434,7 @@ export default function AdminUsersPage() {
                   <th className="px-5 py-4">Usuário</th>
                   <th className="px-5 py-4">Perfil</th>
                   <th className="px-5 py-4">Plano</th>
+                  <th className="px-5 py-4">Permissões</th>
                   <th className="px-5 py-4">Status</th>
                   <th className="px-5 py-4">Cadastrado</th>
                   <th className="px-5 py-4 text-right">Ações</th>
@@ -357,6 +467,15 @@ export default function AdminUsersPage() {
                       )}
                     </td>
                     <td className="px-5 py-4 align-middle">
+                      {u.permissoes && u.permissoes.length > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black bg-blue-50 text-blue-600">
+                          🔑 {u.permissoes.length} permiss{u.permissoes.length === 1 ? "ão" : "ões"}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-300 font-medium">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 align-middle">
                       <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${u.ativo ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                         {u.ativo ? "Ativo" : "Bloqueado"}
                       </span>
@@ -376,7 +495,7 @@ export default function AdminUsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-12 text-center text-slate-400 font-bold text-sm">
+                    <td colSpan={7} className="p-12 text-center text-slate-400 font-bold text-sm">
                       Nenhum usuário encontrado.
                     </td>
                   </tr>
@@ -425,15 +544,143 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 shrink-0">
+              <h2 className="text-lg font-black text-slate-900">Novo Usuário</h2>
+              <p className="text-sm text-slate-400 font-medium mt-0.5">Crie um usuário com perfil e permissões personalizadas.</p>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Nome</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={createForm.nome}
+                    onChange={(e) => setCreateForm({ ...createForm, nome: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Perfil</label>
+                  <select
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
+                    value={createForm.perfil}
+                    onChange={(e) => setCreateForm({ ...createForm, perfil: e.target.value })}
+                  >
+                    <option value="admin">Admin</option>
+                    <option value="imobiliaria">Imobiliária</option>
+                    <option value="corretor">Corretor</option>
+                    <option value="comprador">Comprador</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">E-mail</label>
+                <input
+                  type="email"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Senha</label>
+                  <input
+                    type="password"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={createForm.senha}
+                    onChange={(e) => setCreateForm({ ...createForm, senha: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Confirmar Senha</label>
+                  <input
+                    type="password"
+                    className={`w-full px-4 py-2.5 rounded-xl bg-slate-50 border text-sm font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none ${
+                      createForm.confirmarSenha && createForm.senha !== createForm.confirmarSenha
+                        ? "border-red-300"
+                        : "border-slate-200"
+                    }`}
+                    value={createForm.confirmarSenha}
+                    onChange={(e) => setCreateForm({ ...createForm, confirmarSenha: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Plano</label>
+                <div className="flex gap-2">
+                  {["gratuito", "pro", "premium"].map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setCreateForm({ ...createForm, tipo_plano: p })}
+                      className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition border-2 ${
+                        createForm.tipo_plano === p
+                          ? p === "premium"
+                            ? "bg-purple-100 text-purple-700 border-purple-400"
+                            : p === "pro"
+                            ? "bg-indigo-100 text-indigo-700 border-indigo-400"
+                            : "bg-slate-200 text-slate-700 border-slate-400"
+                          : "bg-slate-50 text-slate-400 border-transparent"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Permissões</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <PermissoesCheckboxes
+                    value={createForm.permissoes}
+                    onChange={(v) => setCreateForm({ ...createForm, permissoes: v })}
+                  />
+                </div>
+                {createForm.permissoes.length > 0 && (
+                  <p className="text-[10px] text-blue-500 font-bold mt-1 ml-1">
+                    {createForm.permissoes.length} permiss{createForm.permissoes.length === 1 ? "ão" : "ões"} selecionada{createForm.permissoes.length === 1 ? "" : "s"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 flex gap-3 shrink-0">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 py-2.5 bg-slate-50 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !createForm.nome || !createForm.email || !createForm.senha || createForm.senha !== createForm.confirmarSenha}
+                className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition text-sm shadow-lg shadow-blue-100"
+              >
+                {creating ? "Criando..." : "Criar Usuário"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-slate-100 shrink-0">
               <h2 className="text-lg font-black text-slate-900">Editar Usuário</h2>
               <p className="text-sm text-slate-400 font-medium mt-0.5">{editingUser.email} · ID #{editingUser.id}</p>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5 block">Nome</label>
                 <input
@@ -521,9 +768,19 @@ export default function AdminUsersPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Permissões</label>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <PermissoesCheckboxes
+                    value={editForm.permissoes}
+                    onChange={(v) => setEditForm({ ...editForm, permissoes: v })}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 flex gap-3">
+            <div className="p-6 border-t border-slate-100 flex gap-3 shrink-0">
               <button
                 onClick={() => setEditingUser(null)}
                 className="flex-1 py-2.5 bg-slate-50 text-slate-500 font-bold rounded-xl hover:bg-slate-100 transition text-sm"

@@ -1,7 +1,18 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from datetime import datetime
 from uuid import UUID
-from typing import Any, Literal
+from typing import Any, List, Literal
+from enum import Enum
+
+
+class PermissaoEnum(str, Enum):
+    gerenciar_usuarios = "gerenciar_usuarios"
+    gerenciar_imoveis = "gerenciar_imoveis"
+    gerenciar_leads = "gerenciar_leads"
+    gerenciar_planos = "gerenciar_planos"
+    ver_relatorios = "ver_relatorios"
+    gerenciar_cupons = "gerenciar_cupons"
+    configuracoes_sistema = "configuracoes_sistema"
 
 
 class UsuarioCriar(BaseModel):
@@ -37,6 +48,7 @@ class UserAdminResponse(BaseModel):
     criado_em: datetime
     broker_count: int = 0
     imobiliaria_id: int | None = None
+    permissoes: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +61,7 @@ class UserAdminUpdate(BaseModel):
     creci: str | None = None
     ativo: bool | None = None
     imobiliaria_id: int | None = None
+    permissoes: List[PermissaoEnum] | None = None
 
 
 class Token(BaseModel):

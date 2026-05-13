@@ -134,7 +134,7 @@ def upgrade() -> None:
         sa.Column("nome", sa.String(length=200), nullable=True),
         sa.Column("telefone", sa.String(length=50), nullable=False),
         sa.PrimaryKeyConstraint("id", name="pk_itens_lista_contatos_whatsapp"),
-        sa.ForeignKeyConstraint(["lista_id"], ["listas_contatos_whatsapp.id"], name="fk_itens_lista_contatos_whatsapp_lista_id_listas_contatos_whatsapp", ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["lista_id"], ["listas_contatos_whatsapp.id"], name="fk_itens_lista_whatsapp_lista_id", ondelete="CASCADE"),
     )
     op.create_index("ix_itens_lista_contatos_whatsapp_id", "itens_lista_contatos_whatsapp", ["id"])
     op.create_index("ix_itens_lista_contatos_whatsapp_lista_id", "itens_lista_contatos_whatsapp", ["lista_id"])

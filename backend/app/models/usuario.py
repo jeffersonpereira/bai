@@ -21,6 +21,9 @@ class Usuario(Base):
     imobiliaria_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Permissões granulares (apenas para admins)
+    permissoes = Column(JSON, nullable=True, default=list)
+
     # Landing page pública (planos pro/premium)
     slug = Column(String(100), unique=True, index=True, nullable=True)
     bio = Column(Text, nullable=True)

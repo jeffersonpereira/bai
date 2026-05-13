@@ -6,7 +6,8 @@ from app.models.usuario import Usuario
 from app.models.imovel import Imovel
 from app.models.lead import Lead
 from app.schemas.usuario import UserAdminUpdate
-from app.schemas.admin import AdminStats
+from app.schemas.admin import AdminStats, AdminCriarUsuarioRequest
+from app.core.security import get_password_hash
 
 
 def get_stats(db: Session) -> AdminStats:
@@ -20,6 +21,27 @@ def get_stats(db: Session) -> AdminStats:
         recent_registrations=db.query(Usuario).filter(Usuario.criado_em >= one_week_ago).count(),
         premium_users=db.query(Usuario).filter(Usuario.tipo_plano.in_(["pro", "premium"])).count(),
     )
+
+
+def criar_usuario_admin(db: Session, dados: AdminCriarUsuarioRequest) -> Usuario:
+    existente = db.query(Usuario).filter(Usuario.email == dados.email).first()
+    if existente:
+        raise HTTPException(status_code=409, detail="Email já cadastrado")
+
+    novo = Usuario(
+        nome=dados.nome,
+        email=dados.email,
+        senha_hash=get_password_hash(dados.senha),
+        perfil=dados.perfil,
+        tipo_plano=dados.tipo_plano,
+        permissoes=[p.value for p in dados.permissoes],
+        ativo=True,
+    )
+    db.add(novo)
+    db.commit()
+    db.refresh(novo)
+    novo.broker_count = 0
+    return novo
 
 
 def list_users(db: Session, perfil: str | None, q: str | None) -> list:

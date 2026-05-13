@@ -42,7 +42,9 @@
       "Bash(gh api *)",
       "Bash(python -c \"import sys,json; [print\\(f['name']\\) for f in json.load\\(sys.stdin\\)]\")",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(python -m alembic upgrade head)",
+      "Bash(python -c \"from app.routers.whatsapp import router; print\\('router OK, routes:', [r.path for r in router.routes]\\)\")"
     ]
   }
 }

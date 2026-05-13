@@ -11,7 +11,7 @@ from app.models.imovel import Imovel
 from app.models.lead import Lead
 from app.core.deps import get_current_admin
 from app.schemas.usuario import UserAdminResponse, UserAdminUpdate
-from app.schemas.admin import AdminStats
+from app.schemas.admin import AdminStats, AdminCriarUsuarioRequest
 from app.services import admin_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -62,6 +62,15 @@ class UserAdminListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+@router.post("/users", response_model=UserAdminResponse, status_code=201)
+def create_user(
+    user_in: AdminCriarUsuarioRequest,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(get_current_admin),
+):
+    return admin_service.criar_usuario_admin(db, user_in)
 
 
 @router.get("/users", response_model=UserAdminListResponse)

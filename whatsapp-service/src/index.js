@@ -8,6 +8,13 @@ const logger = pino()
 const PORT = parseInt(process.env.PORT || '40002', 10)
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || ''
 
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Internal-Key')
+    if (req.method === 'OPTIONS') return res.sendStatus(204)
+    next()
+})
 app.use(express.json())
 
 function requireAuth(req, res, next) {
